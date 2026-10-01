@@ -47,8 +47,13 @@ float emitSize;
 float2 cameraTileXY;
 float currentTime;
 
-static float2 texCoords[4] = { float2(0, 0), float2(0.25f, 0), float2(0.25f, 0.25f), float2(0, 0.25f) };
-static float3 offsets[4] = { float3(-0.5f, 0.5f, 0), float3(0.5f, 0.5f, 0), float3(0.5f, -0.5f, 0), float3(-0.5f, -0.5f, 0) };
+// Corner (0 or 1 per axis) of a particle quad from its vertex index 0-3: (0,0), (1,0), (1,1), (0,1).
+// Computed arithmetically because the OpenGL effect path (MojoShader) turns run-time indexed static
+// arrays into a uniform that is never set, which collapsed every quad to a point.
+float2 QuadCorner(float vertexIndex)
+{
+	return float2(step(0.5, vertexIndex) * step(vertexIndex, 2.5), step(1.5, vertexIndex));
+}
 
 float4 Fog;
 
@@ -123,20 +128,20 @@ VERTEX_OUTPUT VSParticles(in VERTEX_INPUT In)
 	
 	float particleSize = (emitSize * 2) * (1 + age * 4);  // Start off at emitSize and increases in size.
 	
-	int vertIdx = (int)In.TileXY_Vertex_ID.z;
+	float2 corner = QuadCorner(In.TileXY_Vertex_ID.z);
 	
 	float3 right = invView[0].xyz;
 	float3 up = invView[1].xyz;
 	
 	float2x2 rotMatrix = GetRotationMatrix(age, In.Color_Random.a);	
-	float3 vertOffset = offsets[vertIdx] * particleSize;
+	float3 vertOffset = float3(corner.x - 0.5f, 0.5f - corner.y, 0) * particleSize;
 	vertOffset.xy = mul(vertOffset.xy, rotMatrix);
 	In.StartPosition_StartTime.xyz += right * vertOffset.x;
 	In.StartPosition_StartTime.xyz += up * vertOffset.y;
 	
 	Out.Position = mul(float4(In.StartPosition_StartTime.xyz, 1), worldViewProjection);
 	
-	Out.TexCoord = texCoords[vertIdx];
+	Out.TexCoord = corner * 0.25f;
 	float texAtlasPosition = In.TileXY_Vertex_ID.w;
 	int atlasX = texAtlasPosition % 4;
 	int atlasY = texAtlasPosition / 4;

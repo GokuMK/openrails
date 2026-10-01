@@ -47,8 +47,13 @@ float particleSize;
 float2 cameraTileXZ;
 float currentTime;
 
-static float2 texCoords[4] = { float2(0, 0), float2(1, 0), float2(1, 1), float2(0, 1) };
-static float2 offsets[4] = { float2(-0.5f, 0.5f), float2(0.5f, 0.5f), float2(0.5f, -0.5f), float2(-0.5f, -0.5f) };
+// Corner (0 or 1 per axis) of a particle quad from its vertex index 0-3: (0,0), (1,0), (1,1), (0,1).
+// Computed arithmetically because the OpenGL effect path (MojoShader) turns run-time indexed static
+// arrays into a uniform that is never set, which collapsed every quad to a point.
+float2 QuadCorner(float vertexIndex)
+{
+	return float2(step(0.5, vertexIndex) * step(vertexIndex, 2.5), step(1.5, vertexIndex));
+}
 
 texture precipitation_Tex;
 
@@ -88,17 +93,18 @@ VERTEX_OUTPUT VSPrecipitation(in VERTEX_INPUT In)
 	VERTEX_OUTPUT Out = (VERTEX_OUTPUT)0;
 	
 	float age = (currentTime - In.StartPosition_StartTime.w) / (In.EndPosition_EndTime.w - In.StartPosition_StartTime.w);
-	int vertIdx = (int)In.TileXZ_Vertex.z;
+	float2 corner = QuadCorner(In.TileXZ_Vertex.z);
+	float2 offset = float2(corner.x - 0.5f, 0.5f - corner.y);
 	float3 right = invView[0].xyz;
 	float3 up = normalize(In.StartPosition_StartTime.xyz - In.EndPosition_EndTime.xyz);
 	
 	In.StartPosition_StartTime.xyz = lerp(In.StartPosition_StartTime.xyz, In.EndPosition_EndTime.xyz, age);
 	In.StartPosition_StartTime.xz += (cameraTileXZ - In.TileXZ_Vertex.xy) * float2(-2048, 2048);
-	In.StartPosition_StartTime.xyz += right * offsets[vertIdx].x * particleSize;
-	In.StartPosition_StartTime.xyz += up * offsets[vertIdx].y * particleSize;
+	In.StartPosition_StartTime.xyz += right * offset.x * particleSize;
+	In.StartPosition_StartTime.xyz += up * offset.y * particleSize;
 	
 	Out.Position = mul(float4(In.StartPosition_StartTime.xyz, 1), worldViewProjection);
-	Out.TexCoord = texCoords[vertIdx];
+	Out.TexCoord = corner;
 	
 	return Out;
 }
