@@ -408,7 +408,7 @@ namespace Orts.Simulation.RollingStocks
                 }
             }
 
-            var wagonFolderSlash = Path.GetDirectoryName(WagFilePath) + @"\";
+            var wagonFolderSlash = Path.GetDirectoryName(WagFilePath) + "/";
             if (MainShapeFileName != null && !File.Exists(wagonFolderSlash + MainShapeFileName))
             {
                 Trace.TraceWarning("{0} references non-existent shape {1}", shortPath, wagonFolderSlash + MainShapeFileName);

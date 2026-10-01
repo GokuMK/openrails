@@ -19,7 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Orts.Processes;
 using ORTS.Common;
@@ -44,18 +43,9 @@ namespace Orts.Viewer3D.Processes
         public float GPUMemoryDedicated { get; private set; }
         public float GPUMemoryShared { get; private set; }
 
-        readonly PerformanceCounterCategory CounterDotNetClrMemory = new PerformanceCounterCategory(".NET CLR Memory");
-        readonly PerformanceCounterCategory CounterProcess = new PerformanceCounterCategory("Process");
-        readonly PerformanceCounterCategory CounterGpuProcessMemory = new PerformanceCounterCategory("GPU Process Memory");
-
-        CounterSample CLRMemoryAllocatedBytesPerSecSample;
-        CounterSample CPUMemoryPrivateSample;
-        CounterSample CPUMemoryWorkingSetSample;
-        CounterSample CPUMemoryWorkingSetPrivateSample;
-        CounterSample CPUMemoryVirtualSample;
-        CounterSample[] GPUMemoryCommittedSamples = new CounterSample[1];
-        CounterSample[] GPUMemoryDedicatedSamples = new CounterSample[1];
-        CounterSample[] GPUMemorySharedSamples = new CounterSample[1];
+        // SPIKE(linux): Windows performance counters replaced by managed process and GC metrics.
+        long LastAllocatedBytes;
+        DateTime LastAllocatedTime;
 
         readonly Profiler Profiler = new Profiler("Host");
         readonly ProcessState State = new ProcessState("Host");
@@ -87,9 +77,9 @@ namespace Orts.Viewer3D.Processes
         {
             Profiler.SetThread();
 
-            var memoryStatus = new MEMORYSTATUSEX { Size = 64 };
-            GlobalMemoryStatusEx(memoryStatus);
-            CPUMemoryVirtualLimit = Math.Min(memoryStatus.TotalVirtual, memoryStatus.TotalPhysical);
+            CPUMemoryVirtualLimit = (ulong)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+            LastAllocatedBytes = GC.GetTotalAllocatedBytes();
+            LastAllocatedTime = DateTime.UtcNow;
 
             while (true)
             {
@@ -130,108 +120,26 @@ namespace Orts.Viewer3D.Processes
             Profiler.Start();
             try
             {
-                var processId = Process.GetCurrentProcess().Id;
+                using (var process = Process.GetCurrentProcess())
+                {
+                    CPUMemoryPrivate = process.PrivateMemorySize64;
+                    CPUMemoryWorkingSet = process.WorkingSet64;
+                    CPUMemoryWorkingSetPrivate = process.PrivateMemorySize64;
+                    CPUMemoryVirtual = process.VirtualMemorySize64;
+                }
 
-                var dotNetClrMemory = GetInstanceSamples(CounterDotNetClrMemory, "Process ID", processId, "Allocated Bytes/sec");
-                CLRMemoryAllocatedBytesPerSec = GetValue(ref CLRMemoryAllocatedBytesPerSecSample, dotNetClrMemory[0]);
-
-                var process = GetInstanceSamples(CounterProcess, "ID Process", processId, "Private Bytes", "Working Set", "Working Set - Private", "Virtual Bytes");
-                CPUMemoryPrivate = GetValue(ref CPUMemoryPrivateSample, process[0]);
-                CPUMemoryWorkingSet = GetValue(ref CPUMemoryWorkingSetSample, process[1]);
-                CPUMemoryWorkingSetPrivate = GetValue(ref CPUMemoryWorkingSetPrivateSample, process[2]);
-                CPUMemoryVirtual = GetValue(ref CPUMemoryVirtualSample, process[3]);
-
-                var gpuProcessMemory = GetInstancesSamples(CounterGpuProcessMemory, $"pid_{processId}_", "Total Committed", "Dedicated Usage", "Shared Usage");
-                GPUMemoryCommitted = GetSumValue(ref GPUMemoryCommittedSamples, gpuProcessMemory[0]);
-                GPUMemoryDedicated = GetSumValue(ref GPUMemoryDedicatedSamples, gpuProcessMemory[1]);
-                GPUMemoryShared = GetSumValue(ref GPUMemorySharedSamples, gpuProcessMemory[2]);
+                var allocatedBytes = GC.GetTotalAllocatedBytes();
+                var allocatedTime = DateTime.UtcNow;
+                var seconds = (allocatedTime - LastAllocatedTime).TotalSeconds;
+                if (seconds > 0)
+                    CLRMemoryAllocatedBytesPerSec = (float)((allocatedBytes - LastAllocatedBytes) / seconds);
+                LastAllocatedBytes = allocatedBytes;
+                LastAllocatedTime = allocatedTime;
             }
             finally
             {
                 Profiler.Stop();
             }
         }
-
-        IList<CounterSample> GetInstanceSamples(PerformanceCounterCategory category, string key, long value, params string[] counterNames)
-        {
-            try
-            {
-                var categoryData = category.ReadCategory();
-                var index = categoryData[key].Values.Cast<InstanceData>().ToList().FindIndex(a => a.RawValue == value);
-                return counterNames.Select(name => categoryData.Contains(name) ? categoryData[name].Values.Cast<InstanceData>().ElementAt(index).Sample : CounterSample.Empty).ToList();
-            }
-            catch
-            {
-                return counterNames.Select(name => CounterSample.Empty).ToList();
-            }
-        }
-
-        IList<CounterSample[]> GetInstancesSamples(PerformanceCounterCategory category, string instancePrefix, params string[] counterNames)
-        {
-            try
-            {
-                var categoryData = category.ReadCategory();
-                return counterNames.Select(name => categoryData.Contains(name) ? categoryData[name].Values.Cast<InstanceData>().Where(id => id.InstanceName.StartsWith(instancePrefix)).Select(id => id.Sample).ToArray() : new[] { CounterSample.Empty }).ToList();
-            }
-            catch
-            {
-                return counterNames.Select(name => new[] { CounterSample.Empty }).ToList();
-            }
-        }
-
-        float GetValue(ref CounterSample counterSample, CounterSample nextCounterSample)
-        {
-            try
-            {
-                return CounterSample.Calculate(counterSample, nextCounterSample);
-            }
-            catch
-            {
-                return 0;
-            }
-            finally
-            {
-                counterSample = nextCounterSample;
-            }
-        }
-
-        float GetSumValue(ref CounterSample[] counterSamples, CounterSample[] nextCounterSamples)
-        {
-            try
-            {
-                var counterSample = new CounterSample(counterSamples.Sum(cs => cs.RawValue), counterSamples[0].BaseValue, counterSamples[0].CounterFrequency, counterSamples[0].SystemFrequency, counterSamples[0].TimeStamp, counterSamples[0].TimeStamp100nSec, counterSamples[0].CounterType, counterSamples[0].CounterTimeStamp);
-                var nextCounterSample = new CounterSample(nextCounterSamples.Sum(cs => cs.RawValue), nextCounterSamples[0].BaseValue, nextCounterSamples[0].CounterFrequency, nextCounterSamples[0].SystemFrequency, nextCounterSamples[0].TimeStamp, nextCounterSamples[0].TimeStamp100nSec, nextCounterSamples[0].CounterType, nextCounterSamples[0].CounterTimeStamp);
-                return CounterSample.Calculate(counterSample, nextCounterSample);
-            }
-            catch
-            {
-                return 0;
-            }
-            finally
-            {
-                counterSamples = nextCounterSamples;
-            }
-        }
-
-        #region Native code
-
-        [StructLayout(LayoutKind.Sequential, Size = 64)]
-        public class MEMORYSTATUSEX
-        {
-            public uint Size;
-            public uint MemoryLoad;
-            public ulong TotalPhysical;
-            public ulong AvailablePhysical;
-            public ulong TotalPageFile;
-            public ulong AvailablePageFile;
-            public ulong TotalVirtual;
-            public ulong AvailableVirtual;
-            public ulong AvailableExtendedVirtual;
-        }
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX buffer);
-
-        #endregion
     }
 }

@@ -69,20 +69,21 @@ namespace Orts.Viewer3D
             if (path == null || path == EmptyShape.FilePath)
                 return EmptyShape;
 
-            path = path.ToLowerInvariant();
-            if (!Shapes.ContainsKey(path))
+            // The cache key is case-insensitive; the file is opened by its original path.
+            var key = path.ToLowerInvariant();
+            if (!Shapes.ContainsKey(key))
             {
                 try
                 {
-                    Shapes.Add(path, new SharedShape(Viewer, path));
+                    Shapes.Add(key, new SharedShape(Viewer, path));
                 }
                 catch (Exception error)
                 {
                     Trace.WriteLine(new FileLoadException(path, error));
-                    Shapes.Add(path, EmptyShape);
+                    Shapes.Add(key, EmptyShape);
                 }
             }
-            return Shapes[path];
+            return Shapes[key];
         }
 
         public void Mark()
@@ -202,6 +203,7 @@ namespace Orts.Viewer3D
             }
 
             // Create all the primitives for the shared shape.
+            using var batch = GpuDispatcher.BeginBatch();
             var prims = new List<ShapePrimitiveInstances>();
             foreach (var lod in shapes[0].SharedShape.LodControls)
                 for (var subObjectIndex = 0; subObjectIndex < lod.DistanceLevels[0].SubObjects.Length; subObjectIndex++)
@@ -747,9 +749,7 @@ namespace Orts.Viewer3D
             Array.Copy(TriangleListIndices, newTList, NumIndices);
             var newVList = new VertexPositionNormalTexture[NumVertices];
             Array.Copy(VertexList, newVList, NumVertices);
-            IndexBuffer IndexBuffer = new IndexBuffer(viewer.GraphicsDevice, typeof(short),
-                                                            NumIndices, BufferUsage.WriteOnly);
-            IndexBuffer.SetData(newTList);
+            IndexBuffer IndexBuffer = GpuResources.CreateIndexBuffer(viewer.GraphicsDevice, typeof(short), NumIndices, BufferUsage.WriteOnly, newTList);
             shapePrimitive = new ShapePrimitive(material, new SharedShape.VertexBufferSet(newVList, viewer.GraphicsDevice), IndexBuffer, NumIndices / 3, new[] { -1 }, 0);
 
         }
@@ -831,7 +831,7 @@ namespace Orts.Viewer3D
                 else if (viewer.Simulator.TRK.Tr_RouteFile.DefaultCrossingSMS != null) soundFileName = viewer.Simulator.TRK.Tr_RouteFile.DefaultCrossingSMS;
                 if (soundFileName != "")
                 {
-                    var soundPath = viewer.Simulator.RoutePath + @"\\sound\\" + soundFileName;
+                    var soundPath = viewer.Simulator.RoutePath + "//SOUND//" + soundFileName;
                     try
                     {
                         Sound = new SoundSource(viewer, position.WorldLocation, Events.Source.MSTSCrossing, soundPath);
@@ -839,7 +839,7 @@ namespace Orts.Viewer3D
                     }
                     catch
                     {
-                        soundPath = viewer.Simulator.BasePath + @"\\sound\\" + soundFileName;
+                        soundPath = viewer.Simulator.BasePath + "//SOUND//" + soundFileName;
                         try
                         {
                             Sound = new SoundSource(viewer, position.WorldLocation, Events.Source.MSTSCrossing, soundPath);
@@ -930,7 +930,7 @@ namespace Orts.Viewer3D
         {
             var h = viewer.Simulator.HazzardManager.AddHazzardIntoGame(hObj.itemId, hObj.FileName);
             if (h == null) return null;
-            return new HazzardShape(viewer, viewer.Simulator.BasePath + @"\Global\Shapes\" + h.HazFile.Tr_HazardFile.FileName + "\0" + viewer.Simulator.BasePath + @"\Global\Textures", position, shapeFlags, hObj, h);
+            return new HazzardShape(viewer, viewer.Simulator.BasePath + "/GLOBAL/SHAPES/" + h.HazFile.Tr_HazardFile.FileName + "\0" + viewer.Simulator.BasePath + "/GLOBAL/TEXTURES", position, shapeFlags, hObj, h);
 
         }
 
@@ -1041,7 +1041,7 @@ namespace Orts.Viewer3D
         {
             if (Viewer.Simulator.TRK.Tr_RouteFile.DefaultDieselTowerSMS != null && FuelPickupItemObj.PickupType == 7) // Testing for Diesel PickupType
             {
-                var soundPath = Viewer.Simulator.RoutePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultDieselTowerSMS;
+                var soundPath = Viewer.Simulator.RoutePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultDieselTowerSMS;
                 try
                 {
                     Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.MSTSFuelTower, soundPath);
@@ -1049,7 +1049,7 @@ namespace Orts.Viewer3D
                 }
                 catch
                 {
-                    soundPath = Viewer.Simulator.BasePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultDieselTowerSMS;
+                    soundPath = Viewer.Simulator.BasePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultDieselTowerSMS;
                     try
                     {
                         Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.MSTSFuelTower, soundPath);
@@ -1063,7 +1063,7 @@ namespace Orts.Viewer3D
             }
             if (Viewer.Simulator.TRK.Tr_RouteFile.DefaultWaterTowerSMS != null && FuelPickupItemObj.PickupType == 5) // Testing for Water PickupType
             {
-                var soundPath = Viewer.Simulator.RoutePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultWaterTowerSMS;
+                var soundPath = Viewer.Simulator.RoutePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultWaterTowerSMS;
                 try
                 {
                     Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.MSTSFuelTower, soundPath);
@@ -1071,7 +1071,7 @@ namespace Orts.Viewer3D
                 }
                 catch
                 {
-                    soundPath = Viewer.Simulator.BasePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultWaterTowerSMS;
+                    soundPath = Viewer.Simulator.BasePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultWaterTowerSMS;
                     try
                     {
                         Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.MSTSFuelTower, soundPath);
@@ -1085,7 +1085,7 @@ namespace Orts.Viewer3D
             }
             if (Viewer.Simulator.TRK.Tr_RouteFile.DefaultCoalTowerSMS != null && (FuelPickupItemObj.PickupType == 6 || FuelPickupItemObj.PickupType == 2))
             {
-                var soundPath = Viewer.Simulator.RoutePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultCoalTowerSMS;
+                var soundPath = Viewer.Simulator.RoutePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultCoalTowerSMS;
                 try
                 {
                     Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.MSTSFuelTower, soundPath);
@@ -1093,7 +1093,7 @@ namespace Orts.Viewer3D
                 }
                 catch
                 {
-                    soundPath = Viewer.Simulator.BasePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultCoalTowerSMS;
+                    soundPath = Viewer.Simulator.BasePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultCoalTowerSMS;
                     try
                     {
                         Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.MSTSFuelTower, soundPath);
@@ -1225,7 +1225,7 @@ namespace Orts.Viewer3D
             AnimationKeyZ = Math.Abs((0 - ((linear_key)controllerZ[0]).Z) / (((linear_key)controllerZ[1]).Z - ((linear_key)controllerZ[0]).Z)) * controllerZ[1].Frame;
             if (FuelPickupItemObj.CraneSound != null)
             {
-                var soundPath = Viewer.Simulator.RoutePath + @"\\sound\\" + FuelPickupItemObj.CraneSound;
+                var soundPath = Viewer.Simulator.RoutePath + "//SOUND//" + FuelPickupItemObj.CraneSound;
                 try
                 {
                     Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.ORTSContainerCrane, soundPath);
@@ -1233,7 +1233,7 @@ namespace Orts.Viewer3D
                 }
                 catch
                 {
-                    soundPath = Viewer.Simulator.BasePath + @"\\sound\\containercrane.sms";
+                    soundPath = Viewer.Simulator.BasePath + "//SOUND//containercrane.sms";
                     try
                     {
                         Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.ORTSContainerCrane, soundPath);
@@ -1247,7 +1247,7 @@ namespace Orts.Viewer3D
             }
             else
             {
-                var soundPath = Viewer.Simulator.BasePath + @"\\sound\\containercrane.sms";
+                var soundPath = Viewer.Simulator.BasePath + "//SOUND//containercrane.sms";
                 try
                 {
                     Sound = new SoundSource(Viewer, Position.WorldLocation, Events.Source.ORTSContainerCrane, soundPath);
@@ -1558,7 +1558,7 @@ namespace Orts.Viewer3D
             }
             if (viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS != null)
             {
-                var soundPath = viewer.Simulator.RoutePath + @"\\sound\\" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
+                var soundPath = viewer.Simulator.RoutePath + "//SOUND//" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
                 try
                 {
                     Sound = new SoundSource(viewer, initialPosition.WorldLocation, Events.Source.ORTSTurntable, soundPath);
@@ -1566,7 +1566,7 @@ namespace Orts.Viewer3D
                 }
                 catch
                 {
-                    soundPath = viewer.Simulator.BasePath + @"\\sound\\" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
+                    soundPath = viewer.Simulator.BasePath + "//SOUND//" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
                     try
                     {
                         Sound = new SoundSource(viewer, initialPosition.WorldLocation, Events.Source.ORTSTurntable, soundPath);
@@ -1679,7 +1679,7 @@ namespace Orts.Viewer3D
             }
             if (viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS != null)
             {
-                var soundPath = viewer.Simulator.RoutePath + @"\\sound\\" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
+                var soundPath = viewer.Simulator.RoutePath + "//SOUND//" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
                 try
                 {
                     Sound = new SoundSource(viewer, initialPosition.WorldLocation, Events.Source.ORTSTurntable, soundPath);
@@ -1687,7 +1687,7 @@ namespace Orts.Viewer3D
                 }
                 catch
                 {
-                    soundPath = viewer.Simulator.BasePath + @"\\sound\\" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
+                    soundPath = viewer.Simulator.BasePath + "//SOUND//" + viewer.Simulator.TRK.Tr_RouteFile.DefaultTurntableSMS;
                     try
                     {
                         Sound = new SoundSource(viewer, initialPosition.WorldLocation, Events.Source.ORTSTurntable, soundPath);
@@ -1771,7 +1771,7 @@ namespace Orts.Viewer3D
         protected internal IndexBuffer IndexBuffer;
         protected internal int PrimitiveCount;
 
-        readonly VertexBufferBinding[] VertexBufferBindings;
+        VertexBufferBinding[] VertexBufferBindings;
 
         public ShapePrimitive()
         {
@@ -1780,20 +1780,27 @@ namespace Orts.Viewer3D
         public ShapePrimitive(Material material, SharedShape.VertexBufferSet vertexBufferSet, IndexBuffer indexBuffer, int primitiveCount, int[] hierarchy, int hierarchyIndex)
         {
             Material = material;
-            VertexBuffer = vertexBufferSet.Buffer;
             IndexBuffer = indexBuffer;
             PrimitiveCount = primitiveCount;
             Hierarchy = hierarchy;
             HierarchyIndex = hierarchyIndex;
 
-            VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(material.Viewer.GraphicsDevice)) };
+            // The vertex buffer set may itself still be pending in the current batch.
+            GpuDispatcher.Batched(() =>
+            {
+                VertexBuffer = vertexBufferSet.Buffer;
+                VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(material.Viewer.GraphicsDevice)) };
+            });
         }
 
         public ShapePrimitive(Material material, SharedShape.VertexBufferSet vertexBufferSet, IList<ushort> indexData, GraphicsDevice graphicsDevice, int[] hierarchy, int hierarchyIndex)
             : this(material, vertexBufferSet, null, indexData.Count / 3, hierarchy, hierarchyIndex)
         {
-            IndexBuffer = new IndexBuffer(graphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly);
-            IndexBuffer.SetData(indexData.ToArray());
+            var indices = indexData.ToArray();
+            GpuDispatcher.Batched(() =>
+            {
+                IndexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), indices.Length, BufferUsage.WriteOnly, indices);
+            });
         }
 
         public override void Draw(GraphicsDevice graphicsDevice)
@@ -1844,15 +1851,22 @@ namespace Orts.Viewer3D
                    hierarchy: hierarchy,
                    hierarchyIndex: hierarchyIndex) { }
 
+        // Called by the updater for dynamic cab displays: upload copies without waiting for the render thread,
+        // and apply the new primitive count together with the data.
         public void SetVertexData(VertexPositionNormalTexture[] data, int minVertexIndex, int numVertices, int primitiveCount)
         {
-            VertexBuffer.SetData(data);
-            PrimitiveCount = primitiveCount;
+            var vertices = (VertexPositionNormalTexture[])data.Clone();
+            GpuDispatcher.Post(() =>
+            {
+                VertexBuffer.SetData(vertices);
+                PrimitiveCount = primitiveCount;
+            });
         }
 
         public void SetIndexData(short[] data)
         {
-            IndexBuffer.SetData(data);
+            var indices = (short[])data.Clone();
+            GpuDispatcher.Post(() => IndexBuffer.SetData(indices));
         }
     }
 
@@ -1890,7 +1904,7 @@ namespace Orts.Viewer3D
         protected int InstanceBufferStride;
         protected int InstanceCount;
 
-        readonly VertexBufferBinding[] VertexBufferBindings;
+        VertexBufferBinding[] VertexBufferBindings;
 
         internal ShapePrimitiveInstances(GraphicsDevice graphicsDevice, ShapePrimitive shapePrimitive, Matrix[] positions, int subObjectIndex)
         {
@@ -1898,17 +1912,19 @@ namespace Orts.Viewer3D
             Hierarchy = shapePrimitive.Hierarchy;
             HierarchyIndex = shapePrimitive.HierarchyIndex;
             SubObjectIndex = subObjectIndex;
-            VertexBuffer = shapePrimitive.VertexBuffer;
-            VertexDeclaration = shapePrimitive.VertexBuffer.VertexDeclaration;
-            IndexBuffer = shapePrimitive.IndexBuffer;
             PrimitiveCount = shapePrimitive.PrimitiveCount;
 
             InstanceDeclaration = new VertexDeclaration(ShapeInstanceData.SizeInBytes, ShapeInstanceData.VertexElements);
-            InstanceBuffer = new VertexBuffer(graphicsDevice, InstanceDeclaration, positions.Length, BufferUsage.WriteOnly);
-            InstanceBuffer.SetData(positions);
             InstanceCount = positions.Length;
 
-            VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(InstanceBuffer, 0, 1) };
+            GpuDispatcher.Batched(() =>
+            {
+                VertexBuffer = shapePrimitive.VertexBuffer;
+                VertexDeclaration = shapePrimitive.VertexBuffer.VertexDeclaration;
+                IndexBuffer = shapePrimitive.IndexBuffer;
+                InstanceBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, InstanceDeclaration, positions.Length, BufferUsage.WriteOnly, positions);
+                VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(InstanceBuffer, 0, 1) };
+            });
         }
 
         public override void Draw(GraphicsDevice graphicsDevice)
@@ -1932,8 +1948,7 @@ namespace Orts.Viewer3D
             for (var i = 0; i < indexData.Count; i++)
                 for (var j = 0; j < SharedShape.VertexBufferSet.DebugNormalsVertexPerVertex; j++)
                     debugNormalsIndexBuffer.Add((ushort)(indexData[i] * SharedShape.VertexBufferSet.DebugNormalsVertexPerVertex + j));
-            IndexBuffer = new IndexBuffer(graphicsDevice, typeof(short), debugNormalsIndexBuffer.Count, BufferUsage.WriteOnly);
-            IndexBuffer.SetData(debugNormalsIndexBuffer.ToArray());
+            IndexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), debugNormalsIndexBuffer.Count, BufferUsage.WriteOnly, debugNormalsIndexBuffer.ToArray());
             MinVertexIndex = indexData.Min() * SharedShape.VertexBufferSet.DebugNormalsVertexPerVertex;
             NumVerticies = (indexData.Max() - indexData.Min() + 1) * SharedShape.VertexBufferSet.DebugNormalsVertexPerVertex;
             PrimitiveCount = indexData.Count / 3 * SharedShape.VertexBufferSet.DebugNormalsVertexPerVertex;
@@ -2020,6 +2035,8 @@ namespace Orts.Viewer3D
         /// </summary>
         void LoadContent()
         {
+            // Create the graphics buffers of the whole shape in one unit of render-thread work.
+            using var batch = GpuDispatcher.BeginBatch();
             var filePath = FilePath;
             // commented lines allow reading the animation block from an additional file in an Openrails subfolder
 //            string orFilePath = ORFileHelper.GetORTSFilePath(filePath);
@@ -2035,9 +2052,9 @@ namespace Orts.Viewer3D
             {
                 var sdFile = new ShapeDescriptorFile(FilePath + "d");
                 textureFlags = (Helpers.TextureFlags)sdFile.shape.ESD_Alternative_Texture;
-                if (FilePath != null && FilePath.Contains("\\global\\")) textureFlags |= Helpers.TextureFlags.SnowTrack;//roads and tracks are in global, as MSTS will always use snow texture in snow weather
+                if (FilePath != null && FilePath.Contains("/GLOBAL/")) textureFlags |= Helpers.TextureFlags.SnowTrack;//roads and tracks are in global, as MSTS will always use snow texture in snow weather
                 HasNightSubObj = sdFile.shape.ESD_SubObj;
-                if ((textureFlags & Helpers.TextureFlags.Night) != 0 && FilePath.Contains("\\trainset\\"))
+                if ((textureFlags & Helpers.TextureFlags.Night) != 0 && FilePath.Contains("/TRAINSET/"))
                     textureFlags |= Helpers.TextureFlags.Underground;
                 SoundFileName = sdFile.shape.ESD_SoundFileName;
                 CustomAnimationFPS = sdFile.shape.ESD_CustomAnimationFPS;
@@ -2379,8 +2396,7 @@ namespace Orts.Viewer3D
                 var primitiveIndex = 0;
                 foreach (var index in indexes)
                 {
-                    var indexBuffer = new IndexBuffer(sharedShape.Viewer.GraphicsDevice, typeof(short), index.Value.Count, BufferUsage.WriteOnly);
-                    indexBuffer.SetData(index.Value.ToArray());
+                    var indexBuffer = GpuResources.CreateIndexBuffer(sharedShape.Viewer.GraphicsDevice, typeof(short), index.Value.Count, BufferUsage.WriteOnly, index.Value.ToArray());
                     var primitiveMaterial = primitiveMaterials.First(d => d.Key == index.Key);
                     ShapePrimitives[primitiveIndex] = new ShapePrimitive(primitiveMaterial.Material, vertexBufferSet, indexBuffer, index.Value.Min(), index.Value.Max() - index.Value.Min() + 1, index.Value.Count / 3, hierarchy, primitiveMaterial.HierachyIndex);
                     ++primitiveIndex;
@@ -2428,8 +2444,10 @@ namespace Orts.Viewer3D
 
             public VertexBufferSet(VertexPositionNormalTexture[] vertexData, GraphicsDevice graphicsDevice)
             {
-                Buffer = new VertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), vertexData.Length, BufferUsage.WriteOnly);
-                Buffer.SetData(vertexData);
+                GpuDispatcher.Batched(() =>
+                {
+                    Buffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), vertexData.Length, BufferUsage.WriteOnly, vertexData);
+                });
             }
 
 #if DEBUG_SHAPE_NORMALS
@@ -2438,8 +2456,7 @@ namespace Orts.Viewer3D
             {
                 DebugNormalsVertexCount = debugNormalsVertexData.Length;
                 DebugNormalsDeclaration = new VertexDeclaration(graphicsDevice, VertexPositionColor.VertexElements);
-                DebugNormalsBuffer = new VertexBuffer(graphicsDevice, typeof(VertexPositionColor), DebugNormalsVertexCount, BufferUsage.WriteOnly);
-                DebugNormalsBuffer.SetData(debugNormalsVertexData);
+                DebugNormalsBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionColor), DebugNormalsVertexCount, BufferUsage.WriteOnly, debugNormalsVertexData);
             }
 #endif
 

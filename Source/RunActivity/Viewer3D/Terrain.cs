@@ -158,6 +158,13 @@ namespace Orts.Viewer3D
                     if (tile.GetPatch(x, z).DrawingEnabled)
                         TerrainPatches[x, z] = new TerrainPrimitive(viewer, tileManager, tile, x, z);
 
+            // Create the graphics buffers of every patch in one unit of render-thread work.
+            GpuDispatcher.Invoke(() =>
+            {
+                foreach (var patch in TerrainPatches)
+                    patch?.CreateBuffers(viewer.GraphicsDevice);
+            });
+
             if (tile.ContainsWater)
                 WaterTile = new WaterPrimitive(viewer, tile);
         }
@@ -196,11 +203,15 @@ namespace Orts.Viewer3D
         readonly float AverageElevation;
 
         readonly Vector3 PatchLocation;        // In MSTS world coordinates relative to the center of the tile
-        readonly VertexBuffer PatchVertexBuffer;  // Separate vertex buffer for each patch
-        readonly IndexBuffer PatchIndexBuffer;    // Separate index buffer for each patch (if there are tunnels)
+        VertexBuffer PatchVertexBuffer;  // Separate vertex buffer for each patch
+        IndexBuffer PatchIndexBuffer;    // Separate index buffer for each patch (if there are tunnels)
         readonly int PatchPrimitiveCount;
         readonly Material PatchMaterial;
-        readonly VertexBufferBinding[] VertexBufferBindings;
+        VertexBufferBinding[] VertexBufferBindings;
+
+        // Buffer contents, kept only until CreateBuffers runs on the render thread.
+        VertexPositionNormalTexture[] PatchVertexData;
+        short[] PatchIndexData;
 
         // These can be shared since they are the same for all patches
         public static IndexBuffer SharedPatchIndexBuffer;
@@ -229,10 +240,10 @@ namespace Orts.Viewer3D
             var cx = Patch.CenterX - 1024;
             var cz = Patch.CenterZ - 1024 + 2048 * tile.Size;
             PatchLocation = new Vector3(cx, Tile.Floor, cz);
-            PatchVertexBuffer = GetVertexBuffer(out AverageElevation);
-            PatchIndexBuffer = GetIndexBuffer(out PatchPrimitiveCount);
+            PatchVertexData = GetVertexData(out AverageElevation);
+            PatchIndexData = GetIndexData(out PatchPrimitiveCount);
 
-            var terrainMaterial = tile.Size > 2 ? "TerrainSharedDistantMountain" : PatchIndexBuffer == null ? "TerrainShared" : "Terrain";
+            var terrainMaterial = tile.Size > 2 ? "TerrainSharedDistantMountain" : PatchIndexData == null ? "TerrainShared" : "Terrain";
             var ts = Tile.Shaders[Patch.ShaderIndex].terrain_texslots;
             var uv = Tile.Shaders[Patch.ShaderIndex].terrain_uvcalcs;
             if (ts.Length > 1)
@@ -241,13 +252,27 @@ namespace Orts.Viewer3D
             else
                 PatchMaterial = viewer.MaterialManager.Load(terrainMaterial, Helpers.GetTerrainTextureFile(viewer.Simulator, ts[0].Filename) + "\0" + Helpers.GetTerrainTextureFile(viewer.Simulator, "microtex.ace"));
 
-            if (SharedPatchIndexBuffer == null)
-                SetupSharedData(Viewer.GraphicsDevice);
-
             Tile = null;
             Patch = null;
+        }
 
-            VertexBufferBindings = new[] { new VertexBufferBinding(PatchVertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(viewer.GraphicsDevice)) };
+        /// <summary>
+        /// Creates the graphics buffers from the data prepared by the constructor.
+        /// </summary>
+        [CallOnThread("Render")]
+        internal void CreateBuffers(GraphicsDevice graphicsDevice)
+        {
+            PatchVertexBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), PatchVertexData.Length, BufferUsage.WriteOnly, PatchVertexData);
+            if (PatchIndexData != null)
+            {
+                PatchIndexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), PatchIndexData.Length, BufferUsage.WriteOnly, PatchIndexData);
+            }
+            if (SharedPatchIndexBuffer == null)
+                SetupSharedData(graphicsDevice);
+
+            VertexBufferBindings = new[] { new VertexBufferBinding(PatchVertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(graphicsDevice)) };
+            PatchVertexData = null;
+            PatchIndexData = null;
         }
 
         [CallOnThread("Updater")]
@@ -358,7 +383,7 @@ namespace Orts.Viewer3D
             }
         }
 
-        IndexBuffer GetIndexBuffer(out int primitiveCount)
+        short[] GetIndexData(out int primitiveCount)
         {
             // 16 x 16 squares * 2 triangles per square * 3 indices per triangle
             var indexData = new List<short>(16 * 16 * 2 * 3);
@@ -412,12 +437,10 @@ namespace Orts.Viewer3D
             if (indexData.Count == 16 * 16 * 6)
                 return null;
 
-            var indexBuffer = new IndexBuffer(Viewer.GraphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indexData.ToArray());
-            return indexBuffer;
+            return indexData.ToArray();
         }
 
-        VertexBuffer GetVertexBuffer(out float averageElevation)
+        VertexPositionNormalTexture[] GetVertexData(out float averageElevation)
         {
             var totalElevation = 0f;
             var vertexData = new List<VertexPositionNormalTexture>(17 * 17);
@@ -446,9 +469,7 @@ namespace Orts.Viewer3D
             }
 
             averageElevation = totalElevation / vertexData.Count;
-            var patchVertexBuffer = new VertexBuffer(Viewer.GraphicsDevice, typeof(VertexPositionNormalTexture), vertexData.Count, BufferUsage.WriteOnly);
-            patchVertexBuffer.SetData(vertexData.ToArray());
-            return patchVertexBuffer;
+            return vertexData.ToArray();
         }
 
         [CallOnThread("Loader")]
@@ -493,8 +514,7 @@ namespace Orts.Viewer3D
                 }
             }
 
-            SharedPatchIndexBuffer = new IndexBuffer(graphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly);
-            SharedPatchIndexBuffer.SetData(indexData.ToArray());
+            SharedPatchIndexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly, indexData.ToArray());
         }
     }
 

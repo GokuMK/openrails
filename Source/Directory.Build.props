@@ -5,7 +5,7 @@
     <OutputPath>$(MSBuildThisFileDirectory)\..\Program\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- spike: RID removed -->
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 </Project>

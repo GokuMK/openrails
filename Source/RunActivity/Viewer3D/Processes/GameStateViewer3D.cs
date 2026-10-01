@@ -50,12 +50,7 @@ namespace Orts.Viewer3D.Processes
                 Game.IsFixedTimeStep = false;
                 Game.InactiveSleepTime = TimeSpan.Zero;
 
-                // We must create these forms on the main thread (Render) or they won't pump events correctly.
-                Program.MapForm = new MapViewer(Viewer.Simulator, Viewer);
-                Program.MapForm.Hide();
-
-                Program.SoundDebugForm = new SoundDebugForm(Viewer);
-                Program.SoundDebugForm.Hide();
+                // SPIKE(linux): WinForms map and sound debug windows are not created.
                 Viewer.SoundDebugFormEnabled = false;
 
                 FirstFrame = false;

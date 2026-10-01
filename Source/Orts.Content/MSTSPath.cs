@@ -70,27 +70,27 @@ namespace MSTS
         /// <returns></returns>
         public static string RouteFolder(string route)
         {
-            return Base() + "\\ROUTES\\" + route;
+            return Base() + "/ROUTES/" + route;
         }
 
         public static string ConsistFolder()
         {
-            return Base() + "\\TRAINS\\CONSISTS";
+            return Base() + "/TRAINS/CONSISTS";
         }
 
         public static string TrainsetFolder()
         {
-            return Base() + "\\TRAINS\\TRAINSET";
+            return Base() + "/TRAINS/TRAINSET";
         }
 
         public static string GlobalSoundFolder()
         {
-            return Base() + "\\SOUND";
+            return Base() + "/SOUND";
         }
 
         public static string GetActivityFolder(string routeFolderName)
         {
-            return RouteFolder(routeFolderName) + "\\ACTIVITIES";
+            return RouteFolder(routeFolderName) + "/ACTIVITIES";
         }
 
         public static string GetTRKFileName(string routeFolderPath)
@@ -111,8 +111,8 @@ namespace MSTS
         /// <returns></returns>
         public static string TrainSoundPath(string wagfilename, string soundfile)
         {
-            string trainsetSoundPath = Path.GetDirectoryName(wagfilename) + @"\SOUND\" + soundfile;
-            string globalSoundPath = MSTSPath.GlobalSoundFolder() + @"\" + soundfile;
+            string trainsetSoundPath = Path.GetDirectoryName(wagfilename) + "/SOUND/" + soundfile;
+            string globalSoundPath = MSTSPath.GlobalSoundFolder() + "/" + soundfile;
 
             return File.Exists(trainsetSoundPath) ? trainsetSoundPath : globalSoundPath;
         }
@@ -123,45 +123,45 @@ namespace MSTS
         /// </summary>
         public static string SMSSoundPath(string smsfilename, string soundfile)
         {
-            string smsSoundPath = Path.GetDirectoryName(smsfilename) + @"\" + soundfile;
-            string globalSoundPath = MSTSPath.GlobalSoundFolder() + @"\" + soundfile;
+            string smsSoundPath = Path.GetDirectoryName(smsfilename) + "/" + soundfile;
+            string globalSoundPath = MSTSPath.GlobalSoundFolder() + "/" + soundfile;
 
             return File.Exists(smsSoundPath) ? smsSoundPath : globalSoundPath;
         }
 
         public static string TITFilePath(string route)
         {
-            return RouteFolder(route) + "\\" + route + ".TIT";
+            return RouteFolder(route) + "/" + route + ".TIT";
         }
 
         public static string GetConPath(string conName)
         {
-            return Base() + @"\TRAINS\CONSISTS\" + conName + ".con";
+            return Base() + "/TRAINS/CONSISTS/" + conName + ".con";
         }
 
         public static string GetSrvPath(string srvName, string routeFolderPath)
         {
-            return routeFolderPath + @"\SERVICES\" + srvName + ".srv";
+            return routeFolderPath + "/SERVICES/" + srvName + ".srv";
         }
 
         public static string GetTrfPath(string trfName, string routeFolderPath)
         {
-            return routeFolderPath + @"\TRAFFIC\" + trfName + ".trf";
+            return routeFolderPath + "/TRAFFIC/" + trfName + ".trf";
         }
 
         public static string GetPatPath(string patName, string routeFolderPath)
         {
-            return routeFolderPath + @"\PATHS\" + patName + ".pat";
+            return routeFolderPath + "/PATHS/" + patName + ".pat";
         }
 
         public static string GetWagPath(string name, string folder)
         {
-            return Base() + @"\TRAINS\TRAINSET\" + folder + @"\" + name + ".wag";
+            return Base() + "/TRAINS/TRAINSET/" + folder + "/" + name + ".wag";
         }
 
         public static string GetEngPath(string name, string folder)
         {
-            return Base() + @"\TRAINS\TRAINSET\" + folder + @"\" + name + ".eng";
+            return Base() + "/TRAINS/TRAINSET/" + folder + "/" + name + ".eng";
         }
 
     } // class MSTSPath

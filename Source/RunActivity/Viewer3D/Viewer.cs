@@ -22,7 +22,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Threading;
 using System.Windows.Forms;
 using GNU.Gettext;
@@ -340,23 +339,23 @@ namespace Orts.Viewer3D
             WellKnownCameras.Add(new FreeRoamCamera(this, FrontCamera)); // Any existing camera will suffice to satisfy .Save() and .Restore()
             WellKnownCameras.Add(ThreeDimCabCamera = new ThreeDimCabCamera(this));
 
-            string ORfilepath = System.IO.Path.Combine(Simulator.RoutePath, "OpenRails");
+            string ORfilepath = System.IO.Path.Combine(Simulator.RoutePath, "OPENRAILS");
             ContentPath = Game.ContentPath;
-            ENVFile = new EnvironmentFile(Simulator.RoutePath + @"\ENVFILES\" + Simulator.TRK.Tr_RouteFile.Environment.ENVFileName(Simulator.Season, Simulator.WeatherType));
+            ENVFile = new EnvironmentFile(Simulator.RoutePath + "/ENVFILES/" + Simulator.TRK.Tr_RouteFile.Environment.ENVFileName(Simulator.Season, Simulator.WeatherType));
 
-            if (File.Exists(ORfilepath + @"\sigcfg.dat"))
+            if (File.Exists(ORfilepath + "/sigcfg.dat"))
             {
-                SIGCFG = new SignalConfigurationFile(ORfilepath + @"\sigcfg.dat", true);
+                SIGCFG = new SignalConfigurationFile(ORfilepath + "/sigcfg.dat", true);
             }
             else
             {
-                SIGCFG = new SignalConfigurationFile(Simulator.RoutePath + @"\sigcfg.dat", false);
+                SIGCFG = new SignalConfigurationFile(Simulator.RoutePath + "/sigcfg.dat", false);
             }
 
-            TrackTypes = new TrackTypesFile(Simulator.RoutePath + @"\TTYPE.DAT");
+            TrackTypes = new TrackTypesFile(Simulator.RoutePath + "/ttype.dat");
 
-            Tiles = new TileManager(Simulator.RoutePath + @"\TILES\", false);
-            LoTiles = new TileManager(Simulator.RoutePath + @"\LO_TILES\", true);
+            Tiles = new TileManager(Simulator.RoutePath + "/TILES/", false);
+            LoTiles = new TileManager(Simulator.RoutePath + "/LO_TILES/", true);
             MilepostUnitsMetric = Simulator.TRK.Tr_RouteFile.MilepostUnitsMetric;
 
             Simulator.AllowedSpeedRaised += (object sender, EventArgs e) =>
@@ -378,10 +377,10 @@ namespace Orts.Viewer3D
             // so it is opened only in activity mode
             if (Simulator.ActivityRun != null && Simulator.Activity.Tr_Activity.Tr_Activity_File.ActivityRestrictedSpeedZones != null)
             {
-                var speedpostDatFile = Simulator.RoutePath + @"\speedpost.dat";
+                var speedpostDatFile = Simulator.RoutePath + "/speedpost.dat";
                 if (File.Exists(speedpostDatFile))
                 {
-                    SpeedpostDatFile = new SpeedpostDatFile(Simulator.RoutePath + @"\speedpost.dat", Simulator.RoutePath + @"\shapes\");
+                    SpeedpostDatFile = new SpeedpostDatFile(Simulator.RoutePath + "/speedpost.dat", Simulator.RoutePath + "/SHAPES/");
                 }
             }
 
@@ -754,23 +753,7 @@ namespace Orts.Viewer3D
         internal void UpdateAdapterInformation(GraphicsAdapter graphicsAdapter)
         {
             adapterDescription = graphicsAdapter.Description;
-            try
-            {
-                // Note that we might find multiple adapters with the same
-                // description; however, the chance of such adapters not having
-                // the same amount of video memory is very slim.
-                foreach (ManagementObject videoController in new ManagementClass("Win32_VideoController").GetInstances())
-                    if (((string)videoController["Description"] == adapterDescription) && (videoController["AdapterRAM"] != null))
-                        adapterMemory = (uint)videoController["AdapterRAM"];
-            }
-            catch (ManagementException error)
-            {
-                Trace.WriteLine(error);
-            }
-            catch (UnauthorizedAccessException error)
-            {
-                Trace.WriteLine(error);
-            }
+            // SPIKE(linux): WMI adapter memory query removed; value stays unknown (0).
         }
 
         [CallOnThread("Loader")]
@@ -933,7 +916,7 @@ namespace Orts.Viewer3D
 
         private void LoadDefectCarSound(TrainCar car, string filename)
         {
-            var smsFilePath = Simulator.BasePath + @"\sound\" + filename;
+            var smsFilePath = Simulator.BasePath + "/SOUND/" + filename;
             if (!File.Exists(smsFilePath))
             {
                 Trace.TraceWarning("Cannot find defect car sound file {0}", filename);

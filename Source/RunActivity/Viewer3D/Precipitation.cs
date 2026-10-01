@@ -154,7 +154,7 @@ namespace Orts.Viewer3D
             Vertices = new ParticleVertex[MaxParticles * VerticiesPerParticle];
             VertexDeclaration = new VertexDeclaration(ParticleVertex.SizeInBytes, ParticleVertex.VertexElements);
             VertexStride = Marshal.SizeOf(typeof(ParticleVertex));
-            VertexBuffer = new DynamicVertexBuffer(graphicsDevice, VertexDeclaration, MaxParticles * VerticiesPerParticle, BufferUsage.WriteOnly);
+            VertexBuffer = GpuDispatcher.Invoke(() => new DynamicVertexBuffer(graphicsDevice, VertexDeclaration, MaxParticles * VerticiesPerParticle, BufferUsage.WriteOnly));
             IndexBuffer = InitIndexBuffer(graphicsDevice, MaxParticles * IndicesPerParticle);
 
             Heights = new HeightCache(8);
@@ -165,7 +165,7 @@ namespace Orts.Viewer3D
 
         void VertexBuffer_ContentLost()
         {
-            VertexBuffer.SetData(0, Vertices, 0, Vertices.Length, VertexStride, SetDataOptions.NoOverwrite);
+            GpuDispatcher.Invoke(() => VertexBuffer.SetData(0, Vertices, 0, Vertices.Length, VertexStride, SetDataOptions.NoOverwrite));
         }
 
         static IndexBuffer InitIndexBuffer(GraphicsDevice graphicsDevice, int numIndices)
@@ -185,8 +185,7 @@ namespace Orts.Viewer3D
                 index += VerticiesPerParticle;
             }
 
-            var indexBuffer = new IndexBuffer(graphicsDevice, typeof(ushort), numIndices, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indices);
+            var indexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(ushort), numIndices, BufferUsage.WriteOnly, indices);
             return indexBuffer;
         }
 
@@ -317,20 +316,27 @@ namespace Orts.Viewer3D
         {
             if (FirstNewParticle < FirstFreeParticle)
             {
-                var numParticlesToAdd = FirstFreeParticle - FirstNewParticle;
-                VertexBuffer.SetData(FirstNewParticle * VertexStride * VerticiesPerParticle, Vertices, FirstNewParticle * VerticiesPerParticle, numParticlesToAdd * VerticiesPerParticle, VertexStride, SetDataOptions.NoOverwrite);
+                UploadParticles(FirstNewParticle, FirstFreeParticle - FirstNewParticle);
             }
             else
             {
-                var numParticlesToAddAtEnd = MaxParticles - FirstNewParticle;
-                VertexBuffer.SetData(FirstNewParticle * VertexStride * VerticiesPerParticle, Vertices, FirstNewParticle * VerticiesPerParticle, numParticlesToAddAtEnd * VerticiesPerParticle, VertexStride, SetDataOptions.NoOverwrite);
+                UploadParticles(FirstNewParticle, MaxParticles - FirstNewParticle);
                 if (FirstFreeParticle > 0)
-                {
-                    VertexBuffer.SetData(0, Vertices, 0, FirstFreeParticle * VerticiesPerParticle, VertexStride, SetDataOptions.NoOverwrite);
-                }
+                    UploadParticles(0, FirstFreeParticle);
             }
 
             FirstNewParticle = FirstFreeParticle;
+        }
+
+        // Called by the updater: upload a copy of the new particles without waiting for the render thread.
+        void UploadParticles(int firstParticle, int particleCount)
+        {
+            var firstVertex = firstParticle * VerticiesPerParticle;
+            var vertexCount = particleCount * VerticiesPerParticle;
+            var vertices = new ParticleVertex[vertexCount];
+            Array.Copy(Vertices, firstVertex, vertices, 0, vertexCount);
+            var vertexBuffer = VertexBuffer;
+            GpuDispatcher.Post(() => vertexBuffer.SetData(firstVertex * VertexStride, vertices, 0, vertexCount, VertexStride, SetDataOptions.NoOverwrite));
         }
 
         public bool HasParticlesToRender()

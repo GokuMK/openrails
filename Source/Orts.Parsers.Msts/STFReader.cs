@@ -1927,8 +1927,8 @@ namespace Orts.Parsers.Msts
                         }
                         var purefilename = Path.GetFileName(filename).ToLower();
                         if (purefilename == "[[samename]]")
-                            filename = Path.GetDirectoryName(filename) + @"\" + Path.GetFileName(FileName);
-                        var includeFileName = Path.GetDirectoryName(FileName) + @"\" + filename;
+                            filename = Path.GetDirectoryName(filename) + "/" + Path.GetFileName(FileName);
+                        var includeFileName = Path.GetDirectoryName(FileName) + "/" + filename;
                         if (!File.Exists(includeFileName))
                             STFException.TraceWarning(this, string.Format("'{0}' not found", includeFileName));
                         includeReader = new STFReader(includeFileName, false);
@@ -2552,7 +2552,7 @@ namespace Orts.Parsers.Msts
         {
             if (Path.IsPathRooted(fileName))
             {
-                this.directoryName = Path.GetDirectoryName(fileName) + @"\";
+                this.directoryName = Path.GetDirectoryName(fileName) + "/";
             }
             this.streamReaderFactory = factory;
             this.SourceTokenStream = sourceTokenStream;

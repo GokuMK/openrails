@@ -90,8 +90,7 @@ namespace Orts.Viewer3D
 
             if (trees.Count > 0)
             {
-                VertexBuffer = new VertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionNormalTexture), trees.Count, BufferUsage.WriteOnly);
-                VertexBuffer.SetData(trees.ToArray());
+                VertexBuffer = GpuResources.CreateVertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionNormalTexture), trees.Count, BufferUsage.WriteOnly, trees.ToArray());
             }
 
             PrimitiveCount = trees.Count / 3;

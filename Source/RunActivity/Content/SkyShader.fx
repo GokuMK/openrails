@@ -1,3 +1,17 @@
+// SPIKE(linux): per-platform shader models (MonoGame OpenGL/MojoShader accepts SM3).
+#if OPENGL
+#define SV_POSITION POSITION
+#define VS_MODEL_9_1 vs_3_0
+#define PS_MODEL_9_1 ps_3_0
+#define VS_MODEL_9_3 vs_3_0
+#define PS_MODEL_9_3 ps_3_0
+#else
+#define VS_MODEL_9_1 vs_4_0_level_9_1
+#define PS_MODEL_9_1 ps_4_0_level_9_1
+#define VS_MODEL_9_3 vs_4_0_level_9_3
+#define PS_MODEL_9_3 ps_4_0_level_9_3
+#endif
+
 // COPYRIGHT 2009 - 2023 by the Open Rails project.
 //
 // This file is part of Open Rails.
@@ -287,21 +301,21 @@ float4 PSClouds(VERTEX_OUTPUT In) : COLOR
 
 technique Sky {
    pass Pass_0 {
-	  VertexShader = compile vs_4_0_level_9_1 VSSky();
-	  PixelShader = compile ps_4_0_level_9_1 PSSky();
+	  VertexShader = compile VS_MODEL_9_1 VSSky();
+	  PixelShader = compile PS_MODEL_9_1 PSSky();
    }
 }
 
 technique Moon {
    pass Pass_0 {
-	  VertexShader = compile vs_4_0_level_9_1 VSMoon();
-	  PixelShader = compile ps_4_0_level_9_1 PSMoon();
+	  VertexShader = compile VS_MODEL_9_1 VSMoon();
+	  PixelShader = compile PS_MODEL_9_1 PSMoon();
    }
 }
 
 technique Clouds {
    pass Pass_0 {
-	  VertexShader = compile vs_4_0_level_9_1 VSSky();
-	  PixelShader = compile ps_4_0_level_9_1 PSClouds();
+	  VertexShader = compile VS_MODEL_9_1 VSSky();
+	  PixelShader = compile PS_MODEL_9_1 PSClouds();
    }
 }

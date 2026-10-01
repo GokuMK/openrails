@@ -22,6 +22,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Orts.Simulation.RollingStocks;
 using Orts.Viewer3D.RollingStock;
 using SpriteBatch = Microsoft.Xna.Framework.Graphics.SpriteBatch;
+using ORTS.Common;
 
 namespace Orts.Viewer3D.Popups
 {
@@ -44,8 +45,12 @@ namespace Orts.Viewer3D.Popups
 
         public ControlRectangle(WindowManager owner, Viewer viewer) : base(owner)
         {
-            Line = new Texture2D(Owner.Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
-            Line.SetData(new[] { Color });
+            Line = GpuDispatcher.Invoke(() =>
+            {
+                var texture = new Texture2D(Owner.Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
+                texture.SetData(new[] { Color });
+                return texture;
+            });
             Viewer = viewer;
         }
         public override void Draw(SpriteBatch spriteBatch)

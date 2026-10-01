@@ -146,7 +146,7 @@ namespace Orts.Viewer3D
         {
             int trpIndex;
             if (shapePath == "" && viewer.Simulator.TSectionDat.TrackShapes.ContainsKey(trSection.ShapeIndex))
-                shapePath = String.Concat(viewer.Simulator.BasePath, @"\Global\Shapes\", viewer.Simulator.TSectionDat.TrackShapes.Get(trSection.ShapeIndex).FileName);
+                shapePath = String.Concat(viewer.Simulator.BasePath, "/GLOBAL/SHAPES/", viewer.Simulator.TSectionDat.TrackShapes.Get(trSection.ShapeIndex).FileName);
 
             if (viewer.TrackProfileIndicies.ContainsKey(shapePath))
                 viewer.TrackProfileIndicies.TryGetValue(shapePath, out trpIndex);
@@ -346,15 +346,15 @@ namespace Orts.Viewer3D
         /// <returns>Bool indicating if custom track profiles were found (returns FALSE if the only profile is the default profile)</returns>
         public static bool CreateTrackProfile(Viewer viewer, string routePath, out List<TRPFile> trpFiles)
         {
-            string path = routePath + @"\TrackProfiles";
+            string path = routePath + "/TRACKPROFILES";
             List<string> profileNames = new List<string>();
             trpFiles = new List<TRPFile>();
 
             if (Directory.Exists(path))
             {
                 // The file called "TrProfile" should be used as the default track profile, if present
-                string xmlDefault = path + @"\TrProfile.xml";
-                string stfDefault = path + @"\TrProfile.stf";
+                string xmlDefault = path + "/TrProfile.xml";
+                string stfDefault = path + "/TrProfile.stf";
 
                 if (File.Exists(xmlDefault))
                 {
@@ -639,7 +639,7 @@ namespace Orts.Viewer3D
             // RAILSIDES
             lod = new LOD(700.0f); // Create LOD for railsides with specified CutoffRadius
             lodItem = new LODItem("Railsides");
-            lodItem.TexName = "acleantrack2.ace";
+            lodItem.TexName = "ACleanTrack2.ace"; // SPIKE(linux): MSTS spelling
             lodItem.ShaderName = "TexDiff";
             lodItem.LightModelName = "OptSpecular0";
             lodItem.AlphaTestMode = 0;
@@ -685,7 +685,7 @@ namespace Orts.Viewer3D
             lod = new LOD(1200.0f); // Create LOD for railtops with specified CutoffRadius
             // Single LODItem in this case
             lodItem = new LODItem("Railtops");
-            lodItem.TexName = "acleantrack2.ace";
+            lodItem.TexName = "ACleanTrack2.ace"; // SPIKE(linux): MSTS spelling
             lodItem.ShaderName = "TexDiff";
             lodItem.LightModelName = "OptSpecular25";
             lodItem.AlphaTestMode = 0;
@@ -715,7 +715,7 @@ namespace Orts.Viewer3D
             lod = new LOD(float.MaxValue); // Create LOD for ballast with specified CutoffRadius (infinite)
             // Single LODItem in this case
             lodItem = new LODItem("Ballast");
-            lodItem.TexName = "acleantrack1.ace";
+            lodItem.TexName = "ACleanTrack1.ace"; // SPIKE(linux): MSTS spelling
             lodItem.ShaderName = "BlendATexDiff";
             lodItem.LightModelName = "OptSpecular0";
             lodItem.AlphaTestMode = 0;
@@ -1449,8 +1449,7 @@ namespace Orts.Viewer3D
             }
 
             // Create and populate a new ShapePrimitive
-            var indexBuffer = new IndexBuffer(viewer.GraphicsDevice, typeof(short), NumIndices, BufferUsage.WriteOnly);
-            indexBuffer.SetData(TriangleListIndices);
+            var indexBuffer = GpuResources.CreateIndexBuffer(viewer.GraphicsDevice, typeof(short), NumIndices, BufferUsage.WriteOnly, TriangleListIndices);
             return new ShapePrimitive(lodItem.LODMaterial, new SharedShape.VertexBufferSet(VertexList, viewer.GraphicsDevice), indexBuffer, NumIndices / 3, new[] { -1 }, 0);
         }
 

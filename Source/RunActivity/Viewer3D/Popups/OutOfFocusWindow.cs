@@ -25,6 +25,7 @@
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ORTS.Common;
 
 namespace Orts.Viewer3D.Popups
 {
@@ -36,8 +37,12 @@ namespace Orts.Viewer3D.Popups
 
         public OutOfFocusWindow(WindowManager owner) : base(owner)
         {
-            Line = new Texture2D(Owner.Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
-            Line.SetData(new[] { Color });
+            Line = GpuDispatcher.Invoke(() =>
+            {
+                var texture = new Texture2D(Owner.Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
+                texture.SetData(new[] { Color });
+                return texture;
+            });
         }
 
         public override void Draw(SpriteBatch spriteBatch)

@@ -741,7 +741,7 @@ namespace Orts.Formats.Msts
                 new STFReader.TokenProcessor("service_definition", ()=>{ ServiceDefinitionList.Add(new Service_Definition(stf)); }),
             });
 
-            TrafficFile = new TrafficFile(Path.Combine(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(stf.FileName)), "Traffic"), Name + ".trf"));
+            TrafficFile = new TrafficFile(Path.Combine(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(stf.FileName)), "TRAFFIC"), Name + ".trf"));
 
         }
     }

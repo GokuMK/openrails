@@ -316,10 +316,8 @@ namespace Orts.Viewer3D
 
         void InitializeVertexBuffers(GraphicsDevice graphicsDevice)
         {
-            VertexBuffer = new VertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), VertexList.Length, BufferUsage.WriteOnly);
-            VertexBuffer.SetData(VertexList);
-            IndexBuffer = new IndexBuffer(graphicsDevice, typeof(short), IndexCount, BufferUsage.WriteOnly);
-            IndexBuffer.SetData(IndexList);
+            VertexBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), VertexList.Length, BufferUsage.WriteOnly, VertexList);
+            IndexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), IndexCount, BufferUsage.WriteOnly, IndexList);
         }
     }
 

@@ -275,7 +275,7 @@ namespace Orts.Viewer3D
 
                     if (Viewer.Simulator.TRK.Tr_RouteFile.DefaultSignalSMS != null)
                     {
-                        var soundPath = Viewer.Simulator.RoutePath + @"\\sound\\" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultSignalSMS;
+                        var soundPath = Viewer.Simulator.RoutePath + "//SOUND//" + Viewer.Simulator.TRK.Tr_RouteFile.DefaultSignalSMS;
                         try
                         {
                             Sound = new SoundSource(Viewer, SignalShape.Location.WorldLocation, Events.Source.MSTSSignal, soundPath);
@@ -676,8 +676,7 @@ namespace Orts.Viewer3D
 				new VertexPositionColorTexture(new Vector3(+radius, -radius, 0), color, new Vector2(u0, v1)),
 			};
 
-            VertexBuffer = new VertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionColorTexture), verticies.Length, BufferUsage.WriteOnly);
-            VertexBuffer.SetData(verticies);
+            VertexBuffer = GpuResources.CreateVertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionColorTexture), verticies.Length, BufferUsage.WriteOnly, verticies);
 
             Material = material;
         }

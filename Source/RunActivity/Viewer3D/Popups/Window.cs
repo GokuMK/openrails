@@ -269,8 +269,7 @@ namespace Orts.Viewer3D.Popups
 					new VertexPositionTexture(new Vector3(1 * location.Width - gp, 1 * location.Height - 00, 0), new Vector2(0.75f / 2, 1.00f)),
 					new VertexPositionTexture(new Vector3(1 * location.Width - 00, 1 * location.Height - 00, 0), new Vector2(1.00f / 2, 1.00f)),
 				};
-                WindowVertexBuffer = new VertexBuffer(graphicsDevice, typeof(VertexPositionTexture), vertexData.Length, BufferUsage.WriteOnly);
-                WindowVertexBuffer.SetData(vertexData);
+                WindowVertexBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionTexture), vertexData.Length, BufferUsage.WriteOnly, vertexData);
             }
             if (WindowIndexBuffer == null)
             {
@@ -279,8 +278,7 @@ namespace Orts.Viewer3D.Popups
 					11, 6, 10, 5, 9, 4, 8,
 					12, 9, 13, 10, 14, 11, 15,
 				};
-                WindowIndexBuffer = new IndexBuffer(graphicsDevice, typeof(short), indexData.Length, BufferUsage.WriteOnly);
-                WindowIndexBuffer.SetData(indexData);
+                WindowIndexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), indexData.Length, BufferUsage.WriteOnly, indexData);
             }
 
             graphicsDevice.SetVertexBuffer(WindowVertexBuffer);

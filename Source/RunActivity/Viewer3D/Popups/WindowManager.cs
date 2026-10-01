@@ -93,13 +93,21 @@ namespace Orts.Viewer3D.Popups
 
             if (WhiteTexture == null)
             {
-                WhiteTexture = new Texture2D(Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
-                WhiteTexture.SetData(new[] { Color.White });
+                WhiteTexture = GpuDispatcher.Invoke(() =>
+                {
+                    var texture = new Texture2D(Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
+                    texture.SetData(new[] { Color.White });
+                    return texture;
+                });
             }
             if (FlushTexture == null)
             {
-                FlushTexture = new Texture2D(Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
-                FlushTexture.SetData(new[] { Color.Transparent });
+                FlushTexture = GpuDispatcher.Invoke(() =>
+                {
+                    var texture = new Texture2D(Viewer.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
+                    texture.SetData(new[] { Color.Transparent });
+                    return texture;
+                });
             }
             if (ScrollbarTexture == null)
                 // TODO: This should happen on the loader thread.
@@ -125,8 +133,12 @@ namespace Orts.Viewer3D.Popups
                             data[y * size + x] = background;
 
                 // Notice texture is just the rounded corner background.
-                NoticeTexture = new Texture2D(Viewer.GraphicsDevice, size, size, false, SurfaceFormat.Color);
-                NoticeTexture.SetData(data, 0, size * size);
+                NoticeTexture = GpuDispatcher.Invoke(() =>
+                {
+                    var texture = new Texture2D(Viewer.GraphicsDevice, size, size, false, SurfaceFormat.Color);
+                    texture.SetData(data, 0, size * size);
+                    return texture;
+                });
 
                 // Clone the background for pause texture (it has two states).
                 Array.Copy(data, 0, data, size * size, size * size);
@@ -147,8 +159,12 @@ namespace Orts.Viewer3D.Popups
                         data[y * size + x] = Color.White;
                 }
 
-                PauseTexture = new Texture2D(Viewer.GraphicsDevice, size, size * 2, false, SurfaceFormat.Color);
-                PauseTexture.SetData(data);
+                PauseTexture = GpuDispatcher.Invoke(() =>
+                {
+                    var texture = new Texture2D(Viewer.GraphicsDevice, size, size * 2, false, SurfaceFormat.Color);
+                    texture.SetData(data);
+                    return texture;
+                });
             }
         }
 

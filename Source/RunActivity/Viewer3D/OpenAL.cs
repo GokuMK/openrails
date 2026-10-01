@@ -436,6 +436,9 @@ namespace Orts.Viewer3D
         /// </summary>
         private static void CheckMaxSourcesConfig()
         {
+            // SPIKE(linux): OpenAL Soft reads alsoft.ini from %AppData% only on Windows; use context attributes instead (review PR 15).
+            if (!OperatingSystem.IsWindows())
+                return;
             string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "alsoft.ini");
             try
             {

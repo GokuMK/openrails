@@ -253,7 +253,7 @@ namespace Orts.Formats.Msts
 
             foreach (string FileName in ScriptFiles)
             {
-                string fullName = String.Concat(RoutePath, @"\", FileName);
+                string fullName = String.Concat(RoutePath, "/", FileName);
                 int readLineNumber = 0;
 
 #if !DEBUG_ALLOWCRASH

@@ -21,6 +21,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using Microsoft.Xna.Framework.Graphics;
+using ORTS.Common;
 using ORTS.IO;
 
 namespace Orts.Formats.Msts
@@ -99,11 +100,7 @@ namespace Orts.Formats.Msts
 
             // Calculate how many images we're going to load; 1 for non-mipmapped, 1+log(width)/log(2) for mipmapped.
             var imageCount = 1 + (int)((options & SimisAceFormatOptions.MipMaps) != 0 ? Math.Log(width) / Math.Log(2) : 0);
-            Texture2D texture;
-            if ((options & SimisAceFormatOptions.MipMaps) == 0)
-                texture = new Texture2D(graphicsDevice, width, height, false, textureFormat);
-            else
-                texture = new Texture2D(graphicsDevice, width, height, true, textureFormat);
+            var texture = GpuDispatcher.Invoke(() => new Texture2D(graphicsDevice, width, height, (options & SimisAceFormatOptions.MipMaps) != 0, textureFormat));
 
             // Read in the color channels; each one defines a size (in bits) and type (reg, green, blue, mask, alpha).
             var channels = new List<SimisAceChannel>();
@@ -130,6 +127,7 @@ namespace Orts.Formats.Msts
                 reader.ReadBytes(imageCount * 4);
 
                 var buffer = new byte[0];
+                var levels = new byte[imageCount][];
                 for (var imageIndex = 0; imageIndex < imageCount; imageIndex++)
                 {
                     var imageWidth = width / (int)Math.Pow(2, imageIndex);
@@ -143,8 +141,13 @@ namespace Orts.Formats.Msts
                     // For <4 pixels the images are in RGB format. There's no point reading them though, as the
                     // API accepts the 4x4 image's data for the 2x2 and 1x1 case. They do need to be set though!
 
-                    texture.SetData(imageIndex, null, buffer, 0, buffer.Length);
+                    levels[imageIndex] = buffer;
                 }
+                GpuDispatcher.Invoke(() =>
+                {
+                    for (var imageIndex = 0; imageIndex < levels.Length; imageIndex++)
+                        texture.SetData(imageIndex, null, levels[imageIndex], 0, levels[imageIndex].Length);
+                });
             }
             else
             {
@@ -153,6 +156,7 @@ namespace Orts.Formats.Msts
                     reader.ReadBytes(4 * height / (int)Math.Pow(2, imageIndex));
 
                 var buffer = new int[width * height];
+                var levels = new int[imageCount][];
                 var channelBuffers = new byte[8][];
                 for (var imageIndex = 0; imageIndex < imageCount; imageIndex++)
                 {
@@ -187,8 +191,14 @@ namespace Orts.Formats.Msts
                                 buffer[imageWidth * y + x] += (0xFF << 24);
                         }
                     }
-                    texture.SetData(imageIndex, null, buffer, 0, imageWidth * imageHeight);
+                    levels[imageIndex] = new int[imageWidth * imageHeight];
+                    Array.Copy(buffer, levels[imageIndex], imageWidth * imageHeight);
                 }
+                GpuDispatcher.Invoke(() =>
+                {
+                    for (var imageIndex = 0; imageIndex < levels.Length; imageIndex++)
+                        texture.SetData(imageIndex, null, levels[imageIndex], 0, levels[imageIndex].Length);
+                });
             }
 
             return texture;
@@ -205,7 +215,7 @@ namespace Orts.Formats.Msts
             { 0x0E, SurfaceFormat.Bgr565 },
             { 0x10, SurfaceFormat.Bgra5551 },
             { 0x11, SurfaceFormat.Bgra4444 },
-            { 0x12, SurfaceFormat.Dxt1 },
+            { 0x12, SurfaceFormat.Dxt1a /* SPIKE(linux): the DesktopGL backend uploads Dxt1 without alpha */ },
             { 0x14, SurfaceFormat.Dxt3 },
             { 0x16, SurfaceFormat.Dxt5 },
         };

@@ -795,8 +795,7 @@ namespace Orts.Viewer3D
             }
 
             // Create and populate a new ShapePrimitive
-            var indexBuffer = new IndexBuffer(viewer.GraphicsDevice, typeof(short), NumIndices, BufferUsage.WriteOnly);
-            indexBuffer.SetData(TriangleListIndices);
+            var indexBuffer = GpuResources.CreateIndexBuffer(viewer.GraphicsDevice, typeof(short), NumIndices, BufferUsage.WriteOnly, TriangleListIndices);
             return new ShapePrimitive(lodItem.LODMaterial, new SharedShape.VertexBufferSet(VertexList, viewer.GraphicsDevice), indexBuffer, NumIndices / 3, new[] { -1 }, 0);
         }
 

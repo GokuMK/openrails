@@ -246,42 +246,8 @@ namespace ORTS.Settings
 
         public void DumpToGraphic(string filePath)
         {
-            var keyWidth = 50;
-            var keyHeight = 4 * keyWidth;
-            var keySpacing = 5;
-            var keyFontLabel = new System.Drawing.Font(System.Drawing.SystemFonts.MessageBoxFont.FontFamily, keyHeight * 0.33f, System.Drawing.GraphicsUnit.Pixel);
-            var keyFontCommand = new System.Drawing.Font(System.Drawing.SystemFonts.MessageBoxFont.FontFamily, keyHeight * 0.22f, System.Drawing.GraphicsUnit.Pixel);
-            var keyboardLayoutBitmap = new System.Drawing.Bitmap(KeyboardLayout[0].Length * keyWidth, KeyboardLayout.Length * keyHeight);
-            using (var g = System.Drawing.Graphics.FromImage(keyboardLayoutBitmap))
-            {
-                DrawKeyboardMap(null, (keyBox, keyScanCode, keyName) =>
-                {
-                    var keyCommands = GetScanCodeCommands(keyScanCode);
-                    var keyCommandNames = String.Join("\n", keyCommands.Select(c => String.Join(" ", GetPrettyCommandName(c).Split(' ').Skip(1).ToArray())).ToArray());
-
-                    var keyColor = GetScanCodeColor(keyScanCode);
-                    var keyTextColor = System.Drawing.Brushes.Black;
-                    if (keyColor == Color.Transparent)
-                    {
-                        keyColor = Color.White;
-                    }
-                    else
-                    {
-                        keyColor.R += (byte)((255 - keyColor.R) * 2 / 3);
-                        keyColor.G += (byte)((255 - keyColor.G) * 2 / 3);
-                        keyColor.B += (byte)((255 - keyColor.B) * 2 / 3);
-                    }
-
-                    Scale(ref keyBox, keyWidth, keyHeight);
-                    keyBox.Inflate(-keySpacing, -keySpacing);
-
-                    g.FillRectangle(new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb((int)keyColor.PackedValue)), keyBox.Left, keyBox.Top, keyBox.Width, keyBox.Height);
-                    g.DrawRectangle(System.Drawing.Pens.Black, keyBox.Left, keyBox.Top, keyBox.Width, keyBox.Height);
-                    g.DrawString(keyName, keyFontLabel, keyTextColor, keyBox.Right - g.MeasureString(keyName, keyFontLabel).Width + keySpacing, keyBox.Top - 3 * keySpacing);
-                    g.DrawString(keyCommandNames, keyFontCommand, keyTextColor, keyBox.Left, keyBox.Bottom - keyCommands.Count() * keyFontCommand.Height);
-                });
-            }
-            keyboardLayoutBitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+            // SPIKE(linux): GDI keyboard diagram disabled.
+            System.Diagnostics.Trace.TraceWarning("Keyboard diagram export is not available in the Linux spike.");
         }
 
         public static void Scale(ref Rectangle rectangle, int scaleX, int scaleY)
@@ -651,12 +617,49 @@ namespace ORTS.Settings
                 sc = 0xE100 | (scanCode & 0x7F);
             else if (scanCode >= 0x0080)
                 sc = 0xE000 | (scanCode & 0x7F);
+            if (!OperatingSystem.IsWindows())
+                return ScanCodeKeys.TryGetValue(sc, out var key) ? key : Keys.None;
             return (Keys)MapVirtualKey(sc, MapVirtualKeyType.ScanToVirtualEx);
+        }
+
+        /// <summary>
+        /// PC set-1 scan codes to keys, matching MapVirtualKey(ScanToVirtualEx) on a US layout.
+        /// Extended codes carry the 0xE000 prefix; Pause is 0xE11D.
+        /// </summary>
+        static readonly Dictionary<int, Keys> ScanCodeKeys = BuildScanCodeKeys();
+
+        static Dictionary<int, Keys> BuildScanCodeKeys()
+        {
+            var map = new Dictionary<int, Keys>
+            {
+                [0x01] = Keys.Escape, [0x0C] = Keys.OemMinus, [0x0D] = Keys.OemPlus, [0x0E] = Keys.Back, [0x0F] = Keys.Tab,
+                [0x1A] = Keys.OemOpenBrackets, [0x1B] = Keys.OemCloseBrackets, [0x1C] = Keys.Enter, [0x1D] = Keys.LeftControl,
+                [0x27] = Keys.OemSemicolon, [0x28] = Keys.OemQuotes, [0x29] = Keys.OemTilde, [0x2A] = Keys.LeftShift, [0x2B] = Keys.OemPipe,
+                [0x33] = Keys.OemComma, [0x34] = Keys.OemPeriod, [0x35] = Keys.OemQuestion, [0x36] = Keys.RightShift, [0x37] = Keys.Multiply,
+                [0x38] = Keys.LeftAlt, [0x39] = Keys.Space, [0x3A] = Keys.CapsLock, [0x45] = Keys.NumLock, [0x46] = Keys.Scroll,
+                [0x47] = Keys.Home, [0x48] = Keys.Up, [0x49] = Keys.PageUp, [0x4A] = Keys.Subtract, [0x4B] = Keys.Left, [0x4C] = (Keys)0x0C,
+                [0x4D] = Keys.Right, [0x4E] = Keys.Add, [0x4F] = Keys.End, [0x50] = Keys.Down, [0x51] = Keys.PageDown, [0x52] = Keys.Insert,
+                [0x53] = Keys.Delete, [0x56] = Keys.OemBackslash, [0x57] = Keys.F11, [0x58] = Keys.F12,
+                [0xE01C] = Keys.Enter, [0xE01D] = Keys.RightControl, [0xE035] = Keys.Divide, [0xE037] = Keys.PrintScreen, [0xE038] = Keys.RightAlt,
+                [0xE047] = Keys.Home, [0xE048] = Keys.Up, [0xE049] = Keys.PageUp, [0xE04B] = Keys.Left, [0xE04D] = Keys.Right,
+                [0xE04F] = Keys.End, [0xE050] = Keys.Down, [0xE051] = Keys.PageDown, [0xE052] = Keys.Insert, [0xE053] = Keys.Delete,
+                [0xE05B] = Keys.LeftWindows, [0xE05C] = Keys.RightWindows, [0xE05D] = Keys.Apps, [0xE11D] = Keys.Pause,
+            };
+            var digits = new[] { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.D0 };
+            for (var i = 0; i < digits.Length; i++) map[0x02 + i] = digits[i];
+            void Row(int first, string letters) { for (var i = 0; i < letters.Length; i++) map[first + i] = (Keys)letters[i]; }
+            Row(0x10, "QWERTYUIOP");
+            Row(0x1E, "ASDFGHJKL");
+            Row(0x2C, "ZXCVBNM");
+            for (var i = 0; i < 10; i++) map[0x3B + i] = Keys.F1 + i;
+            return map;
         }
 
         public static string GetScanCodeKeyName(int scanCode)
         {
             var xnaName = Enum.GetName(typeof(Keys), GetScanCodeKeys(scanCode));
+            if (!OperatingSystem.IsWindows())
+                return !String.IsNullOrEmpty(xnaName) ? xnaName : String.Format(" [sc=0x{0:X2}]", scanCode);
             var keyNameBuffer = new char[32];
             var keyNameLength = GetKeyNameText(scanCode << 16, keyNameBuffer, keyNameBuffer.Length);
             var keyName = new string(keyNameBuffer, 0, keyNameLength);

@@ -140,10 +140,13 @@ namespace Orts.Viewer3D
         // Internal callers expect a new `Texture2D` for every load so we must also provide a new missing texture for each.
         internal static Texture2D GetInternalMissingTexture(GraphicsDevice graphicsDevice)
         {
-            var texture = new Texture2D(graphicsDevice, 1, 1);
-            if (HighlightMissingTextures) texture.SetData(new[] { Color.Magenta });
-            else texture.SetData(new[] { Color.Gray });
-            return texture;
+            return GpuDispatcher.Invoke(() =>
+            {
+                var texture = new Texture2D(graphicsDevice, 1, 1);
+                if (HighlightMissingTextures) texture.SetData(new[] { Color.Magenta });
+                else texture.SetData(new[] { Color.Gray });
+                return texture;
+            });
         }
 
         /// <summary>
@@ -165,7 +168,8 @@ namespace Orts.Viewer3D
             {
                 case ".bmp":
                 case ".png":
-                    return Texture2D.FromFile(graphicsDevice, path);
+                    // Small program images: decode and upload in one unit of render-thread work.
+                    return GpuDispatcher.Invoke(() => Texture2D.FromFile(graphicsDevice, path));
                 default:
                     Trace.TraceError("Unsupported internal file: {0}", path);
                     return GetInternalMissingTexture(graphicsDevice);
@@ -180,30 +184,24 @@ namespace Orts.Viewer3D
         {
             if (string.IsNullOrEmpty(path)) return SharedMaterialManager.MissingTexture;
 
-            path = path.ToLowerInvariant();
-            var ext = Path.GetExtension(path);
+            var ext = Path.GetExtension(path).ToLowerInvariant();
 
             using (var stream = File.OpenRead(path))
             {
                 if (ext == ".bmp" || ext == ".png")
                 {
-                    using (var image = System.Drawing.Image.FromStream(stream))
+                    // Crop with MonoGame instead of GDI, in one unit of render-thread work.
+                    return GpuDispatcher.Invoke(() =>
                     {
-                        using (var memoryStream = new MemoryStream())
+                        using (var image = Texture2D.FromStream(graphicsDevice, stream))
                         {
-                            var mapRectangle = new System.Drawing.Rectangle
-                            {
-                                Height = MapRectangle.Height,
-                                Width = MapRectangle.Width,
-                                X = MapRectangle.X,
-                                Y = MapRectangle.Y
-                            };
-                            var imageRect = new Bitmap(image).Clone(mapRectangle, image.PixelFormat);
-                            imageRect.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
-                            memoryStream.Seek(0, SeekOrigin.Begin);
-                            return Texture2D.FromStream(graphicsDevice, memoryStream);
+                            var data = new Color[MapRectangle.Width * MapRectangle.Height];
+                            image.GetData(0, MapRectangle, data, 0, data.Length);
+                            var texture = new Texture2D(graphicsDevice, MapRectangle.Width, MapRectangle.Height);
+                            texture.SetData(data);
+                            return texture;
                         }
-                    }
+                    });
                 }
                 else
                 {
@@ -281,7 +279,7 @@ namespace Orts.Viewer3D
             PopupWindowShader = new PopupWindowShader(viewer, viewer.RenderProcess.GraphicsDevice);
             PrecipitationShader = new PrecipitationShader(viewer.RenderProcess.GraphicsDevice);
             SceneryShader = new SceneryShader(viewer.RenderProcess.GraphicsDevice);
-            var microtexPath = viewer.Simulator.RoutePath + @"\TERRTEX\microtex";
+            var microtexPath = viewer.Simulator.RoutePath + "/TERRTEX/microtex";
             try
             {
                 if (File.Exists(microtexPath + ".dds"))
@@ -310,9 +308,9 @@ namespace Orts.Viewer3D
             MissingTexture = SharedTextureManager.GetInternalMissingTexture(viewer.RenderProcess.GraphicsDevice);
 
             // Managing default snow textures
-            var defaultSnowTexturePath = viewer.Simulator.RoutePath + @"\TERRTEX\SNOW\ORTSDefaultSnow.ace";
+            var defaultSnowTexturePath = viewer.Simulator.RoutePath + "/TERRTEX/SNOW/ORTSDefaultSnow.ace";
             DefaultSnowTexture = Viewer.TextureManager.Get(defaultSnowTexturePath);
-            var defaultDMSnowTexturePath = viewer.Simulator.RoutePath + @"\TERRTEX\SNOW\ORTSDefaultDMSnow.ace";
+            var defaultDMSnowTexturePath = viewer.Simulator.RoutePath + "/TERRTEX/SNOW/ORTSDefaultDMSnow.ace";
             DefaultDMSnowTexture = Viewer.TextureManager.Get(defaultDMSnowTexturePath);
 
         }
@@ -752,7 +750,7 @@ namespace Orts.Viewer3D
             NightTexture = SharedMaterialManager.MissingTexture;
             // <CSComment> if "trainset" is in the path (true for night textures for 3DCabs) deferred load of night textures is disabled 
             if (!String.IsNullOrEmpty(texturePath) && (Options & SceneryMaterialOptions.NightTexture) != 0 && ((!viewer.IsDaytime && !viewer.IsNighttime)
-                || TexturePath.Contains(@"\trainset\")))
+                || TexturePath.Contains("/TRAINSET/")))
             {
                 var nightTexturePath = Helpers.GetNightTextureFile(Viewer.Simulator, texturePath);
                 if (!String.IsNullOrEmpty(nightTexturePath))
@@ -1054,12 +1052,17 @@ namespace Orts.Viewer3D
             : base(viewer, null)
         {
             var shadowMapResolution = Viewer.Settings.ShadowMapResolution;
-            BlurVertexBuffer = new VertexBuffer(Viewer.RenderProcess.GraphicsDevice, typeof(VertexPositionTexture), 4, BufferUsage.WriteOnly);
-            BlurVertexBuffer.SetData(new[] {
+            var blurVertices = new[] {
                 new VertexPositionTexture(new Vector3(-1, +1, 0), new Vector2(0, 0)),
                 new VertexPositionTexture(new Vector3(-1, -1, 0), new Vector2(0, shadowMapResolution)),
                 new VertexPositionTexture(new Vector3(+1, +1, 0), new Vector2(shadowMapResolution, 0)),
                 new VertexPositionTexture(new Vector3(+1, -1, 0), new Vector2(shadowMapResolution, shadowMapResolution)),
+            };
+            // Created lazily by the updater, which the render thread may be waiting for.
+            BlurVertexBuffer = GpuDispatcher.Invoke(() =>
+            {
+                var buffer = GpuResources.CreateVertexBuffer(Viewer.RenderProcess.GraphicsDevice, typeof(VertexPositionTexture), 4, BufferUsage.WriteOnly, blurVertices);
+                return buffer;
             });
         }
 
@@ -1337,8 +1340,12 @@ namespace Orts.Viewer3D
         public Label3DMaterial(Viewer viewer)
             : base(viewer)
         {
-            Texture = new Texture2D(SpriteBatch.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
-            Texture.SetData(new[] { Color.White });
+            Texture = GpuDispatcher.Invoke(() =>
+            {
+                var texture = new Texture2D(SpriteBatch.GraphicsDevice, 1, 1, false, SurfaceFormat.Color);
+                texture.SetData(new[] { Color.White });
+                return texture;
+            });
             Font = Viewer.WindowManager.TextManager.GetScaled("Arial", 12, System.Drawing.FontStyle.Bold, 1);
             BigFont = Viewer.WindowManager.TextManager.GetScaled("Arial", 24, System.Drawing.FontStyle.Bold, 2);
         }

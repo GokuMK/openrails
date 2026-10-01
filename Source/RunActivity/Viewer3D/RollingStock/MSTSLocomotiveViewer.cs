@@ -65,7 +65,7 @@ namespace Orts.Viewer3D.RollingStock
         {
             Locomotive = car;
 
-            string wagonFolderSlash = Path.GetDirectoryName(Locomotive.WagFilePath) + "\\";
+            string wagonFolderSlash = Path.GetDirectoryName(Locomotive.WagFilePath) + "/";
             if (Locomotive.CabSoundFileName != null) LoadCarSound(wagonFolderSlash, Locomotive.CabSoundFileName);
 
             //Viewer.SoundProcess.AddSoundSource(this, new TrackSoundSource(MSTSWagon, Viewer));
@@ -887,7 +887,7 @@ namespace Orts.Viewer3D.RollingStock
 
             DayTextures.Add(FileName, viewer.TextureManager.Get(FileName, true));
 
-            var nightpath = Path.Combine(Path.Combine(Path.GetDirectoryName(FileName), "night"), Path.GetFileName(FileName));
+            var nightpath = Path.Combine(Path.Combine(Path.GetDirectoryName(FileName), "NIGHT"), Path.GetFileName(FileName));
             NightTextures.Add(FileName, viewer.TextureManager.Get(nightpath));
 
             var lightdirectory = Path.Combine(Path.GetDirectoryName(FileName), "cablight");
@@ -912,7 +912,7 @@ namespace Orts.Viewer3D.RollingStock
             if (frameCount > frameGrid.X * frameGrid.Y)
                 Trace.TraceWarning("Cab control frame count {1} is larger than the number of frames {2}*{3}={4} (some frames will be blank) for {0}", fileName, frameCount, frameGrid.X, frameGrid.Y, frameGrid.X * frameGrid.Y);
 
-            if (texture.Format != SurfaceFormat.Color && texture.Format != SurfaceFormat.Dxt1)
+            if (texture.Format != SurfaceFormat.Color && texture.Format != SurfaceFormat.Dxt1 && texture.Format != SurfaceFormat.Dxt1a)
             {
                 Trace.TraceWarning("Cab control texture {0} has unsupported format {1}; only Color and Dxt1 are supported.", fileName, texture.Format);
             }
@@ -920,7 +920,7 @@ namespace Orts.Viewer3D.RollingStock
             {
                 var copySize = new Point(frameSize.X, frameSize.Y);
                 Point controlSize;
-                if (texture.Format == SurfaceFormat.Dxt1)
+                if (texture.Format == SurfaceFormat.Dxt1 || texture.Format == SurfaceFormat.Dxt1a)
                 {
                     controlSize.X = (int)Math.Ceiling((float)copySize.X / 4) * 4;
                     controlSize.Y = (int)Math.Ceiling((float)copySize.Y / 4) * 4;
@@ -943,20 +943,24 @@ namespace Orts.Viewer3D.RollingStock
         static int DisassembleFrames<T>(GraphicsDevice graphicsDevice, Texture2D texture, int frameCount, Point frameGrid, Texture2D[] frames, Point frameSize, Point copySize, Point controlSize, T[] buffer) where T : struct
         {
             //Trace.TraceInformation("Disassembling {0} {1} frames in {2}x{3}; control {4}x{5}, frame {6}x{7}, copy {8}x{9}.", texture.Format, frameCount, frameGrid.X, frameGrid.Y, controlSize.X, controlSize.Y, frameSize.X, frameSize.Y, copySize.X, copySize.Y);
-            var frameIndex = 0;
-            for (var y = 0; y < frameGrid.Y; y++)
+            // Reading back and splitting the texture is all graphics work: do it as one unit on the render thread.
+            return GpuDispatcher.Invoke(() =>
             {
-                for (var x = 0; x < frameGrid.X; x++)
+                var frameIndex = 0;
+                for (var y = 0; y < frameGrid.Y; y++)
                 {
-                    if (frameIndex < frameCount)
+                    for (var x = 0; x < frameGrid.X; x++)
                     {
-                        texture.GetData(0, new Rectangle(x * frameSize.X, y * frameSize.Y, copySize.X, copySize.Y), buffer, 0, buffer.Length);
-                        var frame = frames[frameIndex++] = new Texture2D(graphicsDevice, controlSize.X, controlSize.Y, false, texture.Format);
-                        frame.SetData(0, new Rectangle(0, 0, copySize.X, copySize.Y), buffer, 0, buffer.Length);
+                        if (frameIndex < frameCount)
+                        {
+                            texture.GetData(0, new Rectangle(x * frameSize.X, y * frameSize.Y, copySize.X, copySize.Y), buffer, 0, buffer.Length);
+                            var frame = frames[frameIndex++] = new Texture2D(graphicsDevice, controlSize.X, controlSize.Y, false, texture.Format);
+                            frame.SetData(0, new Rectangle(0, 0, copySize.X, copySize.Y), buffer, 0, buffer.Length);
+                        }
                     }
                 }
-            }
-            return frameIndex;
+                return frameIndex;
+            });
         }
 
         /// <summary>
@@ -1193,8 +1197,12 @@ namespace Orts.Viewer3D.RollingStock
 
             _PrevScreenSize = DisplaySize;
 
-            _LetterboxTexture = new Texture2D(viewer.GraphicsDevice, 1, 1);
-            _LetterboxTexture.SetData(new Color[] { Color.Black });
+            _LetterboxTexture = GpuDispatcher.Invoke(() =>
+            {
+                var texture = new Texture2D(viewer.GraphicsDevice, 1, 1);
+                texture.SetData(new Color[] { Color.Black });
+                return texture;
+            });
 
             // Use same shader for both front-facing and rear-facing cabs.
             if (_Locomotive.CabViewList[(int)CabViewType.Front].ExtendedCVF != null)
@@ -3851,7 +3859,7 @@ namespace Orts.Viewer3D.RollingStock
         Material FindMaterial(bool Alert)
         {
             string imageName = "";
-            string globalText = Viewer.Simulator.BasePath + @"\GLOBAL\TEXTURES\";
+            string globalText = Viewer.Simulator.BasePath + "/GLOBAL/TEXTURES/";
             CABViewControlTypes controltype = CVFR.GetControlType().Type;
             Material material = null;
 
@@ -3892,13 +3900,13 @@ namespace Orts.Viewer3D.RollingStock
             }
             else
             {
-                if (!File.Exists(TrainCarShape.SharedShape.ReferencePath + @"\" + imageName))
+                if (!File.Exists(TrainCarShape.SharedShape.ReferencePath + "/" + imageName))
                 {
                     Trace.TraceInformation("Ignored missing " + imageName + " using default. You can copy the " + imageName + " from OR\'s AddOns folder to " + globalText +
                         ", or place it under " + TrainCarShape.SharedShape.ReferencePath);
                     material = Viewer.MaterialManager.Load("Scenery", Helpers.GetTextureFile(Viewer.Simulator, Helpers.TextureFlags.None, globalText, imageName), (int)(options), 0);
                 }
-                else material = Viewer.MaterialManager.Load("Scenery", Helpers.GetTextureFile(Viewer.Simulator, Helpers.TextureFlags.None, TrainCarShape.SharedShape.ReferencePath + @"\", imageName), (int)(options), 0);
+                else material = Viewer.MaterialManager.Load("Scenery", Helpers.GetTextureFile(Viewer.Simulator, Helpers.TextureFlags.None, TrainCarShape.SharedShape.ReferencePath + "/", imageName), (int)(options), 0);
             }
 
             return material;

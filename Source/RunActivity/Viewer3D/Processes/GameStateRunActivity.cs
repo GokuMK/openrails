@@ -111,10 +111,10 @@ namespace Orts.Viewer3D.Processes
 
         internal override void Dispose()
         {
-            Loading.Dispose();
-            LoadingScreen.Dispose();
-            LoadingBar.Dispose();
-            TimetableLoadingBar.Dispose();
+            Loading?.Dispose();
+            LoadingScreen?.Dispose();
+            LoadingBar?.Dispose();
+            TimetableLoadingBar?.Dispose();
             base.Dispose();
         }
 
@@ -149,15 +149,26 @@ namespace Orts.Viewer3D.Processes
             base.Update(frame, totalRealSeconds);
         }
 
+        static bool SpikeNoEffects;
+
         internal override void Load()
         {
+            // SPIKE(linux): without compiled effects, skip the loading screen so simulator loading can be tested.
+            if (!File.Exists(Path.Combine(Game.ContentPath, "Loading.mgfx")))
+            {
+                SpikeNoEffects = true;
+                Trace.TraceWarning("SPIKE: Loading.mgfx missing; loading screen disabled.");
+            }
             // Load loading image first!
-            if (Loading == null)
-                Loading = new LoadingPrimitive(Game);
-            if (LoadingBar == null)
-                LoadingBar = new LoadingBarPrimitive(Game);
-            if (TimetableLoadingBar == null)
-                TimetableLoadingBar = new TimetableLoadingBarPrimitive(Game);
+            if (!SpikeNoEffects)
+            {
+                if (Loading == null)
+                    Loading = new LoadingPrimitive(Game);
+                if (LoadingBar == null)
+                    LoadingBar = new LoadingBarPrimitive(Game);
+                if (TimetableLoadingBar == null)
+                    TimetableLoadingBar = new TimetableLoadingBarPrimitive(Game);
+            }
             var args = Arguments;
 
             // Look for an action to perform.
@@ -181,10 +192,10 @@ namespace Orts.Viewer3D.Processes
             Acttype = acttype;
 
             // Collect all non-action options.
-            var options = args.Where(a => (a.StartsWith("-") || a.StartsWith("/")) && !actions.Contains(a.Substring(1)) && !acttype.Contains(a.Substring(1))).Select(a => a.Substring(1)).ToArray();
+            var options = args.Where(a => (a.StartsWith("-") || (OperatingSystem.IsWindows() && a.StartsWith("/"))) && !actions.Contains(a.Substring(1)) && !acttype.Contains(a.Substring(1))).Select(a => a.Substring(1)).ToArray();
 
             // Collect all non-options as data.
-            var data = args.Where(a => !a.StartsWith("-") && !a.StartsWith("/")).ToArray();
+            var data = args.Where(a => !a.StartsWith("-") && !(OperatingSystem.IsWindows() && a.StartsWith("/"))).ToArray();
 
             // No action, check for data; for now assume any data is good data.
             if (action.Length == 0 && data.Length > 0)
@@ -391,7 +402,7 @@ namespace Orts.Viewer3D.Processes
             //    MPManager.IsMultiPlayer() && MPManager.IsServer() ? "$Multipl$ " : "" , DateTime.Now);
 
             var saveSet = new SaveSet();  // Sets the filestem for the set of Save files
-            using (BinaryWriter outf = new BinaryWriter(new FileStream(UserSettings.UserDataFolder + "\\" + saveSet.FileStem + ".save", FileMode.Create, FileAccess.Write)))
+            using (BinaryWriter outf = new BinaryWriter(new FileStream(UserSettings.UserDataFolder + "/" + saveSet.FileStem + ".save", FileMode.Create, FileAccess.Write)))
             {
                 // Save some version identifiers so we can validate on load.
                 outf.Write(VersionInfo.Version);
@@ -917,7 +928,7 @@ namespace Orts.Viewer3D.Processes
             // We hash together all the appropriate arguments to the program as the key for the loading cache file.
             // Arguments without a '.' in them and those starting '/' are ignored, since they are explore activity
             // configuration (time, season, etc.) or flags like /test which we don't want to change on.
-            LoadingDataKey = String.Join(" ", args.Where(a => a.Contains('.') && !a.StartsWith("-") && !a.StartsWith("/"))).ToLowerInvariant();
+            LoadingDataKey = String.Join(" ", args.Where(a => a.Contains('.') && !a.StartsWith("-") && !(OperatingSystem.IsWindows() && a.StartsWith("/")))).ToLowerInvariant();
             LoadingDataFilePath = settings.GetCacheFilePath("Load", LoadingDataKey);
 
             var loadingTime = 0;
@@ -1119,28 +1130,28 @@ namespace Orts.Viewer3D.Processes
             {
                 case "activity":
                     Simulator = new Simulator(settings, args[0], false);
-                    if (LoadingScreen == null)
+                    if (LoadingScreen == null && !SpikeNoEffects)
                         LoadingScreen = new LoadingScreenPrimitive(Game);
                     Simulator.SetActivity(args[0]);
                     break;
 
                 case "explorer":
                     Simulator = new Simulator(settings, args[0], false);
-                    if (LoadingScreen == null)
+                    if (LoadingScreen == null && !SpikeNoEffects)
                         LoadingScreen = new LoadingScreenPrimitive(Game);
                     Simulator.SetExplore(args[0], args[1], args[2], args[3], args[4]);
                     break;
 
                 case "exploreactivity":
                     Simulator = new Simulator(settings, args[0], false);
-                    if (LoadingScreen == null)
+                    if (LoadingScreen == null && !SpikeNoEffects)
                         LoadingScreen = new LoadingScreenPrimitive(Game);
                     Simulator.SetExploreThroughActivity(args[0], args[1], args[2], args[3], args[4]);
                     break;
 
                 case "timetable":
                     Simulator = new Simulator(settings, args[0], true);
-                    if (LoadingScreen == null)
+                    if (LoadingScreen == null && !SpikeNoEffects)
                         LoadingScreen = new LoadingScreenPrimitive(Game);
                     if (String.Compare(mode, "start", true) != 0) // no specific action for start, handled in start_timetable
                     {
@@ -1338,6 +1349,19 @@ namespace Orts.Viewer3D.Processes
 
         long GetProcessBytesLoaded()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                // Linux: "rchar" in /proc/self/io counts bytes read, like ReadTransferCount.
+                try
+                {
+                    foreach (var line in File.ReadLines("/proc/self/io"))
+                        if (line.StartsWith("rchar:"))
+                            return long.Parse(line.Substring(6).Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                }
+                catch (IOException) { }
+                return 0;
+            }
+
             NativeMathods.IO_COUNTERS counters;
             if (NativeMathods.GetProcessIoCounters(Process.GetCurrentProcess().Handle, out counters))
                 return (long)counters.ReadTransferCount;
@@ -1354,8 +1378,7 @@ namespace Orts.Viewer3D.Processes
             {
                 Material = GetMaterial(game);
                 var verticies = GetVerticies(game);
-                VertexBuffer = new VertexBuffer(game.GraphicsDevice, typeof(VertexPositionTexture), verticies.Length, BufferUsage.WriteOnly);
-                VertexBuffer.SetData(verticies);
+                VertexBuffer = GpuResources.CreateVertexBuffer(game.GraphicsDevice, typeof(VertexPositionTexture), verticies.Length, BufferUsage.WriteOnly, verticies);
             }
 
             virtual protected LoadingMaterial GetMaterial(Game game)

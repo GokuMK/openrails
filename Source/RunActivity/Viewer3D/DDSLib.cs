@@ -59,6 +59,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.IO;
+using ORTS.Common;
 
 namespace Orts.Viewer3D
 {
@@ -795,7 +796,7 @@ namespace Orts.Viewer3D
                 switch (compressionFormat)
                 {
                     case FourCC.D3DFMT_DXT1:
-                        return SurfaceFormat.Dxt1;
+                        return SurfaceFormat.Dxt1a /* SPIKE(linux): the DesktopGL backend uploads Dxt1 without alpha */;
                     case FourCC.D3DFMT_DXT3:
                         return SurfaceFormat.Dxt3;
                     case FourCC.D3DFMT_DXT5:
@@ -840,7 +841,7 @@ namespace Orts.Viewer3D
                     case LoadSurfaceFormat.A8R8G8B8:
                         return SurfaceFormat.Color;
                     case LoadSurfaceFormat.Dxt1:
-                        return SurfaceFormat.Dxt1;
+                        return SurfaceFormat.Dxt1a /* SPIKE(linux): the DesktopGL backend uploads Dxt1 without alpha */;
                     case LoadSurfaceFormat.Dxt3:
                         return SurfaceFormat.Dxt3;
                     case LoadSurfaceFormat.Dxt5:
@@ -1235,8 +1236,10 @@ namespace Orts.Viewer3D
             }
             else
             {
-                Texture2D tex = GenerateNewTexture2D(loadSurfaceFormat, compressionFormat, device, width, height, hasMipMaps, pixelFlags, rgbBitCount);
+                Texture2D tex = GpuDispatcher.Invoke(() => GenerateNewTexture2D(loadSurfaceFormat, compressionFormat, device, width, height, hasMipMaps, pixelFlags, rgbBitCount));
 
+                // Read every level first (the read buffer is reused), then upload them in one unit of work.
+                var levels = new byte[tex.LevelCount][];
                 for (int i = 0; i < tex.LevelCount; i++)
                 {
                     int numBytes = 0;
@@ -1244,8 +1247,14 @@ namespace Orts.Viewer3D
                     GetMipMaps(streamOffset, i, hasAnyMipmaps, width, height, isCompressed, compressionFormat, rgbBitCount, isCubeMap, reader, loadSurfaceFormat, ref localMipData, out numBytes);
                     mipData = localMipData;
 
-                    tex.SetData<byte>(i, null, localMipData, 0, numBytes);
+                    levels[i] = new byte[numBytes];
+                    Array.Copy(localMipData, levels[i], numBytes);
                 }
+                GpuDispatcher.Invoke(() =>
+                {
+                    for (int i = 0; i < levels.Length; i++)
+                        tex.SetData<byte>(i, null, levels[i], 0, levels[i].Length);
+                });
 
 
                 texture = tex;
@@ -1256,7 +1265,7 @@ namespace Orts.Viewer3D
         //detect if a texture is using a compressed format.
         private static bool IsXNATextureCompressed(Texture texture)
         {
-            if (texture.Format == SurfaceFormat.Dxt1 ||
+            if (texture.Format == SurfaceFormat.Dxt1 || texture.Format == SurfaceFormat.Dxt1a ||
                 texture.Format == SurfaceFormat.Dxt3 ||
                 texture.Format == SurfaceFormat.Dxt5)
             {
@@ -1314,7 +1323,7 @@ namespace Orts.Viewer3D
                 return FourCC.D3DFMT_R16F;
             }
 
-            if (texture.Format == SurfaceFormat.Dxt1)
+            if (texture.Format == SurfaceFormat.Dxt1 || texture.Format == SurfaceFormat.Dxt1a)
             {
                 return FourCC.D3DFMT_DXT1;
             }
@@ -1342,6 +1351,7 @@ namespace Orts.Viewer3D
             switch (texture.Format)
             {
                 case SurfaceFormat.Dxt1:
+                case SurfaceFormat.Dxt1a:
                 case SurfaceFormat.Dxt3:
                 case SurfaceFormat.Dxt5:
                     pixelWidth = 0;
@@ -1399,6 +1409,7 @@ namespace Orts.Viewer3D
                     alphaBits = 0;
                     break;
                 case SurfaceFormat.Dxt1:
+                case SurfaceFormat.Dxt1a:
                 case SurfaceFormat.Bgra5551:
                     alphaBits = 1;
                     break;
@@ -1434,6 +1445,7 @@ namespace Orts.Viewer3D
             switch (fileFormat)
             {
                 case SurfaceFormat.Dxt1:
+                case SurfaceFormat.Dxt1a:
                 case SurfaceFormat.Dxt3:
                 case SurfaceFormat.Dxt5:
                     flags = 4;
@@ -1443,7 +1455,7 @@ namespace Orts.Viewer3D
                     bBitMask = 0;
                     aBitMask = 0;
                     fourCC = 0;
-                    if (fileFormat == SurfaceFormat.Dxt1)
+                    if (fileFormat == SurfaceFormat.Dxt1 || fileFormat == SurfaceFormat.Dxt1a)
                     {
                         fourCC = 0x31545844;
                     }
@@ -1876,7 +1888,7 @@ namespace Orts.Viewer3D
             if (isCompressed)
             {
                 int blockCount = ((Width + 3) / 4) * ((Height + 3) / 4);
-                int blockSize = (texture.Format != SurfaceFormat.Dxt1) ? 8 : 0x10;
+                int blockSize = (texture.Format != SurfaceFormat.Dxt1 && texture.Format != SurfaceFormat.Dxt1a) ? 8 : 0x10;
                 dwPitchOrLinearSize = (uint)(blockCount * blockSize);
             }
             else

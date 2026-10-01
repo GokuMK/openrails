@@ -1,3 +1,17 @@
+// SPIKE(linux): per-platform shader models (MonoGame OpenGL/MojoShader accepts SM3).
+#if OPENGL
+#define SV_POSITION POSITION
+#define VS_MODEL_9_1 vs_3_0
+#define PS_MODEL_9_1 ps_3_0
+#define VS_MODEL_9_3 vs_3_0
+#define PS_MODEL_9_3 ps_3_0
+#else
+#define VS_MODEL_9_1 vs_4_0_level_9_1
+#define PS_MODEL_9_1 ps_4_0_level_9_1
+#define VS_MODEL_9_3 vs_4_0_level_9_3
+#define PS_MODEL_9_3 ps_4_0_level_9_3
+#endif
+
 // COPYRIGHT 2010, 2011, 2013 by the Open Rails project.
 // 
 // This file is part of Open Rails.
@@ -181,32 +195,32 @@ float4 PSShadowMapBlur(in VERTEX_OUTPUT_BLUR In) : COLOR0
 
 technique ShadowMap {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSShadowMap();
-		PixelShader = compile ps_4_0_level_9_1 PSShadowMap();
+		VertexShader = compile VS_MODEL_9_1 VSShadowMap();
+		PixelShader = compile PS_MODEL_9_1 PSShadowMap();
 	}
 }
 
 technique ShadowMapForest {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSShadowMapForest();
-		PixelShader = compile ps_4_0_level_9_1 PSShadowMap();
+		VertexShader = compile VS_MODEL_9_1 VSShadowMapForest();
+		PixelShader = compile PS_MODEL_9_1 PSShadowMap();
 	}
 }
 
 technique ShadowMapBlocker {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSShadowMap();
-		PixelShader = compile ps_4_0_level_9_1 PSShadowMapBlocker();
+		VertexShader = compile VS_MODEL_9_1 VSShadowMap();
+		PixelShader = compile PS_MODEL_9_1 PSShadowMapBlocker();
 	}
 }
 
 technique ShadowMapBlur {
 	pass Blur_X {
-		VertexShader = compile vs_4_0_level_9_1 VSShadowMapHorzBlur();
-		PixelShader = compile ps_4_0_level_9_1 PSShadowMapBlur();
+		VertexShader = compile VS_MODEL_9_1 VSShadowMapHorzBlur();
+		PixelShader = compile PS_MODEL_9_1 PSShadowMapBlur();
 	}
 	pass Blur_Y {
-		VertexShader = compile vs_4_0_level_9_1 VSShadowMapVertBlur();
-		PixelShader = compile ps_4_0_level_9_1 PSShadowMapBlur();
+		VertexShader = compile VS_MODEL_9_1 VSShadowMapVertBlur();
+		PixelShader = compile PS_MODEL_9_1 PSShadowMapBlur();
 	}
 }

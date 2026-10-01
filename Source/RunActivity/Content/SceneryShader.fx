@@ -1,3 +1,17 @@
+// SPIKE(linux): per-platform shader models (MonoGame OpenGL/MojoShader accepts SM3).
+#if OPENGL
+#define SV_POSITION POSITION
+#define VS_MODEL_9_1 vs_3_0
+#define PS_MODEL_9_1 ps_3_0
+#define VS_MODEL_9_3 vs_3_0
+#define PS_MODEL_9_3 ps_3_0
+#else
+#define VS_MODEL_9_1 vs_4_0_level_9_1
+#define PS_MODEL_9_1 ps_4_0_level_9_1
+#define VS_MODEL_9_3 vs_4_0_level_9_3
+#define PS_MODEL_9_3 ps_4_0_level_9_3
+#endif
+
 // COPYRIGHT 2009, 2010, 2011, 2012, 2013 by the Open Rails project.
 // 
 // This file is part of Open Rails.
@@ -639,119 +653,119 @@ float4 PSSignalLight(in VERTEX_OUTPUT In) : COLOR0
 
 technique ImageLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSGeneral9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSImage9_1();
+		VertexShader = compile VS_MODEL_9_1 VSGeneral9_1();
+		PixelShader = compile PS_MODEL_9_1 PSImage9_1();
 	}
 }
 
 technique ImageLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSGeneral9_3();
-		PixelShader = compile ps_4_0_level_9_3 PSImage9_3();
+		VertexShader = compile VS_MODEL_9_3 VSGeneral9_3();
+		PixelShader = compile PS_MODEL_9_3 PSImage9_3();
 	}
 }
 
 technique TransferLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSTransfer9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSImage9_1();
+		VertexShader = compile VS_MODEL_9_1 VSTransfer9_1();
+		PixelShader = compile PS_MODEL_9_1 PSImage9_1();
 	}
 }
 
 technique TransferLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSTransfer3();
-		PixelShader = compile ps_4_0_level_9_3 PSImage9_3Clamp();
+		VertexShader = compile VS_MODEL_9_3 VSTransfer3();
+		PixelShader = compile PS_MODEL_9_3 PSImage9_3Clamp();
 	}
 }
 
 technique Forest {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSForest();
-		PixelShader = compile ps_4_0_level_9_1 PSVegetation();
+		VertexShader = compile VS_MODEL_9_1 VSForest();
+		PixelShader = compile PS_MODEL_9_1 PSVegetation();
 	}
 }
 
 technique VegetationLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSGeneral9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSVegetation();
+		VertexShader = compile VS_MODEL_9_1 VSGeneral9_1();
+		PixelShader = compile PS_MODEL_9_1 PSVegetation();
 	}
 }
 
 technique VegetationLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSGeneral9_3();
-		PixelShader = compile ps_4_0_level_9_3 PSVegetation();
+		VertexShader = compile VS_MODEL_9_3 VSGeneral9_3();
+		PixelShader = compile PS_MODEL_9_3 PSVegetation();
 	}
 }
 
 technique TerrainLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSTerrain9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSTerrain9_1();
+		VertexShader = compile VS_MODEL_9_1 VSTerrain9_1();
+		PixelShader = compile PS_MODEL_9_1 PSTerrain9_1();
 	}
 }
 
 technique TerrainLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSTerrain9_3();
-		PixelShader = compile ps_4_0_level_9_3 PSTerrain9_3();
+		VertexShader = compile VS_MODEL_9_3 VSTerrain9_3();
+		PixelShader = compile PS_MODEL_9_3 PSTerrain9_3();
 	}
 }
 
 technique DarkShadeLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSGeneral9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSDarkShade();
+		VertexShader = compile VS_MODEL_9_1 VSGeneral9_1();
+		PixelShader = compile PS_MODEL_9_1 PSDarkShade();
 	}
 }
 
 technique DarkShadeLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSGeneral9_3();
-		PixelShader = compile ps_4_0_level_9_3 PSDarkShade();
+		VertexShader = compile VS_MODEL_9_3 VSGeneral9_3();
+		PixelShader = compile PS_MODEL_9_3 PSDarkShade();
 	}
 }
 
 technique HalfBrightLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSGeneral9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSHalfBright();
+		VertexShader = compile VS_MODEL_9_1 VSGeneral9_1();
+		PixelShader = compile PS_MODEL_9_1 PSHalfBright();
 	}
 }
 
 technique HalfBrightLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSGeneral9_3();
-		PixelShader = compile ps_4_0_level_9_3 PSHalfBright();
+		VertexShader = compile VS_MODEL_9_3 VSGeneral9_3();
+		PixelShader = compile PS_MODEL_9_3 PSHalfBright();
 	}
 }
 
 technique FullBrightLevel9_1 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSGeneral9_1();
-		PixelShader = compile ps_4_0_level_9_1 PSFullBright();
+		VertexShader = compile VS_MODEL_9_1 VSGeneral9_1();
+		PixelShader = compile PS_MODEL_9_1 PSFullBright();
 	}
 }
 
 technique FullBrightLevel9_3 {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_3 VSGeneral9_3();
-		PixelShader = compile ps_4_0_level_9_3 PSFullBright();
+		VertexShader = compile VS_MODEL_9_3 VSGeneral9_3();
+		PixelShader = compile PS_MODEL_9_3 PSFullBright();
 	}
 }
 
 technique SignalLight {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSSignalLight();
-		PixelShader = compile ps_4_0_level_9_1 PSSignalLight();
+		VertexShader = compile VS_MODEL_9_1 VSSignalLight();
+		PixelShader = compile PS_MODEL_9_1 PSSignalLight();
 	}
 }
 
 technique SignalLightGlow {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSSignalLightGlow();
-		PixelShader = compile ps_4_0_level_9_1 PSSignalLight();
+		VertexShader = compile VS_MODEL_9_1 VSSignalLightGlow();
+		PixelShader = compile PS_MODEL_9_1 PSSignalLight();
 	}
 }

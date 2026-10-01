@@ -1,4 +1,4 @@
-// COPYRIGHT 2014 by the Open Rails project.
+﻿// COPYRIGHT 2014 by the Open Rails project.
 // 
 // This file is part of Open Rails.
 // 
@@ -74,13 +74,14 @@ namespace Orts.Common.Scripting
             if (path == null || path == "")
                 return null;
             
-            path = path.ToLowerInvariant();
+            // The cache key is case-insensitive; the file is read from its original path.
+            var key = path.ToLowerInvariant();
 
-            var type = String.Format("{0}.{1}", nameSpace, Path.GetFileNameWithoutExtension(path).Replace('-', '_'));
+            var type = String.Format("{0}.{1}", nameSpace, Path.GetFileNameWithoutExtension(key).Replace('-', '_'));
 
-            if (!Scripts.ContainsKey(path))
-                Scripts[path] = CompileScript(new string[] { path });
-            return Scripts[path]?.CreateInstance(type, true);
+            if (!Scripts.ContainsKey(key))
+                Scripts[key] = CompileScript(new string[] { path });
+            return Scripts[key]?.CreateInstance(type, true);
         }
 
         private static Assembly CompileScript(string[] path)

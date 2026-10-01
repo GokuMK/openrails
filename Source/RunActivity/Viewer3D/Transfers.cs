@@ -128,11 +128,9 @@ namespace Orts.Viewer3D
                 }
             }
 
-            VertexBuffer = new VertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionTexture), verticies.Length, BufferUsage.WriteOnly);
-            VertexBuffer.SetData(verticies);
+            VertexBuffer = GpuResources.CreateVertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionTexture), verticies.Length, BufferUsage.WriteOnly, verticies);
 
-            IndexBuffer = new IndexBuffer(viewer.GraphicsDevice, typeof(short), indicies.Length, BufferUsage.WriteOnly);
-            IndexBuffer.SetData(indicies);
+            IndexBuffer = GpuResources.CreateIndexBuffer(viewer.GraphicsDevice, typeof(short), indicies.Length, BufferUsage.WriteOnly, indicies);
             PrimitiveCount = indicies.Length / 3;
         }
 

@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6-windows</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Orts</RootNamespace>
     <ApplicationIcon>..\ORTS.ico</ApplicationIcon>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+    <UseWindowsForms>false</UseWindowsForms>
+    <ImportWindowsDesktopTargets>false</ImportWindowsDesktopTargets>
     <IsPublishable>False</IsPublishable>
     <AssemblyTitle>Open Rails Activity Runner</AssemblyTitle>
     <Description>Open Rails Transport Simulator</Description>
@@ -650,10 +650,11 @@
     <PackageReference Include="Microsoft.DotNet.UpgradeAssistant.Extensions.Default.Analyzers" Version="0.4.355802">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.1.303" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageReference Include="SkiaSharp" Version="4.153.1" /><!-- SPIKE(linux) -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" /><!-- SPIKE(linux) -->
     <PackageReference Include="RailDriver" Version="0.7.10" />
-    <PackageReference Include="System.Management" Version="7.0.0" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
     <PackageReference Include="Unosquare.Swan.Lite" Version="3.1.0" />
   </ItemGroup>
@@ -671,6 +672,11 @@
     </EmbeddedResource>
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="PostBuildActions.bat" />
+    <!-- spike: PostBuildActions.bat disabled -->
   </Target>
+  <!-- SPIKE(linux): WinForms map and debug windows excluded (review PR 13). -->
+  <ItemGroup>
+    <Compile Remove="Viewer3D\Map\**;Viewer3D\Debugging\**" />
+    <EmbeddedResource Remove="Viewer3D\Map\**;Viewer3D\Debugging\*.resx" />
+  </ItemGroup>
 </Project>

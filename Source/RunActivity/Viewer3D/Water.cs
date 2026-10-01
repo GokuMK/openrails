@@ -49,7 +49,7 @@ namespace Orts.Viewer3D
             Size = tile.Size;
 
             if (Viewer.ENVFile.WaterLayers != null)
-            WaterLayers = Viewer.ENVFile.WaterLayers.Select(layer => new KeyValuePair<float, Material>(layer.Height, Viewer.MaterialManager.Load("Water", Viewer.Simulator.RoutePath + @"\envfiles\textures\" + layer.TextureName))).ToArray();
+            WaterLayers = Viewer.ENVFile.WaterLayers.Select(layer => new KeyValuePair<float, Material>(layer.Height, Viewer.MaterialManager.Load("Water", Viewer.Simulator.RoutePath + "/ENVFILES/TEXTURES/" + layer.TextureName))).ToArray();
   
             LoadGeometry(Viewer.GraphicsDevice, tile, out PrimitiveCount, out IndexBuffer, out VertexBuffer);
 
@@ -125,8 +125,7 @@ namespace Orts.Viewer3D
                     }
                 }
             }
-            indexBuffer = new IndexBuffer(graphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indexData.ToArray());
+            indexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly, indexData.ToArray());
             var vertexData = new List<VertexPositionNormalTexture>(17 * 17);
             for (var z = 0; z < 17; ++z)
             {
@@ -146,8 +145,7 @@ namespace Orts.Viewer3D
                     vertexData.Add(new VertexPositionNormalTexture(new Vector3(e, y, n), Vector3.UnitY, new Vector2(U, V)));
                 }
             }
-            vertexBuffer = new VertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), vertexData.Count, BufferUsage.WriteOnly);
-            vertexBuffer.SetData(vertexData.ToArray());
+            vertexBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionNormalTexture), vertexData.Count, BufferUsage.WriteOnly, vertexData.ToArray());
         }
 
         [CallOnThread("Loader")]

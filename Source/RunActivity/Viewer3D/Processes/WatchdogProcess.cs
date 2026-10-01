@@ -1,4 +1,4 @@
-// COPYRIGHT 2014 by the Open Rails project.
+﻿// COPYRIGHT 2014 by the Open Rails project.
 // 
 // This file is part of Open Rails.
 // 
@@ -139,6 +139,8 @@ namespace Orts.Viewer3D.Processes
                     // Abandon ship!
                     if (Debugger.IsAttached)
                         Debugger.Break();
+                    else if (Environment.GetEnvironmentVariable("ORTS_SPIKE_KEEP_HUNG") == "1")
+                        Thread.Sleep(Timeout.Infinite); // SPIKE(linux): keep the process for external stack capture
                     else
                         Environment.Exit(1);
                 }
@@ -335,6 +337,13 @@ namespace Orts.Viewer3D.Processes
         internal ThreadWatchdogException(string message, List<StackTrace> stacks)
             : base(message)
         {
+            // Stack capture of other threads is not implemented on .NET 5+, so there may be no stacks.
+            if (stacks.Count == 0)
+            {
+                _stackTrace = "   (stack trace unavailable)";
+                return;
+            }
+
             // Figure out the common base of the stacks.
             var maximumDepth = stacks.Max(stack => stack.FrameCount);
             var commonStack = new List<string>(maximumDepth);

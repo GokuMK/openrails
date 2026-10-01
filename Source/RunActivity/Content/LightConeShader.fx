@@ -1,3 +1,17 @@
+// SPIKE(linux): per-platform shader models (MonoGame OpenGL/MojoShader accepts SM3).
+#if OPENGL
+#define SV_POSITION POSITION
+#define VS_MODEL_9_1 vs_3_0
+#define PS_MODEL_9_1 ps_3_0
+#define VS_MODEL_9_3 vs_3_0
+#define PS_MODEL_9_3 ps_3_0
+#else
+#define VS_MODEL_9_1 vs_4_0_level_9_1
+#define PS_MODEL_9_1 ps_4_0_level_9_1
+#define VS_MODEL_9_3 vs_4_0_level_9_3
+#define PS_MODEL_9_3 ps_4_0_level_9_3
+#endif
+
 // COPYRIGHT 2011 by the Open Rails project.
 // 
 // This file is part of Open Rails.
@@ -74,7 +88,7 @@ float4 PSLightCone(in VERTEX_OUTPUT In) : COLOR0
 
 technique LightCone {
 	pass Pass_0 {
-		VertexShader = compile vs_4_0_level_9_1 VSLightCone();
-		PixelShader = compile ps_4_0_level_9_1 PSLightCone();
+		VertexShader = compile VS_MODEL_9_1 VSLightCone();
+		PixelShader = compile PS_MODEL_9_1 PSLightCone();
 	}
 }

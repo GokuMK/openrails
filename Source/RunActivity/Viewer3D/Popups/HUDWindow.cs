@@ -1658,11 +1658,10 @@ namespace Orts.Viewer3D.Popups
 
         public HUDGraphMesh(Viewer viewer, Color color, int height)
         {
-            VertexBuffer = new DynamicVertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionColor), VertexCount, BufferUsage.WriteOnly);
-            BorderVertexBuffer = new VertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionColor), 10, BufferUsage.WriteOnly);
+            VertexBuffer = GpuDispatcher.Invoke(() => new DynamicVertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionColor), VertexCount, BufferUsage.WriteOnly));
             var borderOffset = new Vector2(1f / SampleCount, 1f / height);
             var borderColor = new Color(Color.White, 0);
-            BorderVertexBuffer.SetData(new[] {
+            BorderVertexBuffer = GpuResources.CreateVertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionColor), 10, BufferUsage.WriteOnly, new[] {
                 // Bottom left
                 new VertexPositionColor(new Vector3(0 - borderOffset.X, 0 - borderOffset.Y, 1), borderColor),
                 new VertexPositionColor(new Vector3(0, 0, 1), borderColor),
@@ -1702,7 +1701,11 @@ namespace Orts.Viewer3D.Popups
             Samples[(int)Sample.X * VerticiesPerSample + 3] = new VertexPositionColor(new Vector3(x, 0, 1), Color);
             Samples[(int)Sample.X * VerticiesPerSample + 4] = new VertexPositionColor(new Vector3(x, value, 0), Color);
             Samples[(int)Sample.X * VerticiesPerSample + 5] = new VertexPositionColor(new Vector3(x, 0, 0), Color);
-            VertexBuffer.SetData((int)Sample.X * VerticiesPerSample * VertexPositionColor.VertexDeclaration.VertexStride, Samples, (int)Sample.X * VerticiesPerSample, VerticiesPerSample, VertexPositionColor.VertexDeclaration.VertexStride, SetDataOptions.NoOverwrite);
+            // Called by the updater every frame: upload without waiting, from a copy of this sample's vertices.
+            var sampleVertices = new VertexPositionColor[VerticiesPerSample];
+            Array.Copy(Samples, (int)Sample.X * VerticiesPerSample, sampleVertices, 0, VerticiesPerSample);
+            var offsetInBytes = (int)Sample.X * VerticiesPerSample * VertexPositionColor.VertexDeclaration.VertexStride;
+            GpuDispatcher.Post(() => VertexBuffer.SetData(offsetInBytes, sampleVertices, 0, VerticiesPerSample, VertexPositionColor.VertexDeclaration.VertexStride, SetDataOptions.NoOverwrite));
 
             SampleIndex = (SampleIndex + 1) % SampleCount;
             Sample.X = SampleIndex;

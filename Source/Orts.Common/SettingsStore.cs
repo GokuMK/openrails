@@ -164,6 +164,9 @@ namespace ORTS.Common
 		{
 			if (!String.IsNullOrEmpty(filePath) && File.Exists(filePath))
 				return new SettingsStoreLocalIni(filePath, section);
+			// There is no Registry outside Windows; the INI store is created on first write.
+			if (!String.IsNullOrEmpty(filePath) && !OperatingSystem.IsWindows())
+				return new SettingsStoreLocalIni(filePath, section);
 			if (!String.IsNullOrEmpty(registryKey))
 				return new SettingsStoreRegistry(registryKey, section);
 			throw new ArgumentException("Neither 'filePath' nor 'registryKey' arguments are valid.");
@@ -181,7 +184,7 @@ namespace ORTS.Common
 		internal SettingsStoreRegistry(string registryKey, string section)
 			: base(section)
 		{
-			RegistryKey = String.IsNullOrEmpty(section) ? registryKey : registryKey + @"\" + section;
+			RegistryKey = String.IsNullOrEmpty(section) ? registryKey : registryKey + "/" + section;
 			Key = Registry.CurrentUser.CreateSubKey(RegistryKey);
 		}
 
@@ -369,21 +372,10 @@ namespace ORTS.Common
         /// <returns></returns>
         public string[] GetSectionNames()
         {
-            var buffer = new String('\0', 256);
-            while (true)
-            {
-                var length = NativeMethods.GetPrivateProfileString(null, null, null, buffer, buffer.Length, FilePath);
-                if (length < buffer.Length - 2)
-                {
-                    buffer = buffer.Substring(0, length);
-                    break;
-                }
-                buffer = new String('\0', buffer.Length * 2);
-            }
-            if (buffer.Length == 0)
+            var names = ManagedIni.GetSectionNames(FilePath);
+            if (names.Length == 0)
                 return null;
-
-            return buffer.Split('\0');
+            return names;
         }
 
         /// <summary>
@@ -391,18 +383,7 @@ namespace ORTS.Common
         /// </summary>
         public override string[] GetUserNames()
         {
-            var buffer = new String('\0', 256);
-            while (true)
-            {
-                var length = NativeMethods.GetPrivateProfileSection(Section, buffer, buffer.Length, FilePath);
-                if (length < buffer.Length - 2)
-                {
-                    buffer = buffer.Substring(0, length);
-                    break;
-                }
-                buffer = new String('\0', buffer.Length * 2);
-            }
-            return buffer.Split('\0').Where(s => s.Contains('=')).Select(s => s.Split('=')[0]).ToArray();
+            return ManagedIni.GetKeyNames(FilePath, Section);
         }
 
         /// <summary>
@@ -415,17 +396,7 @@ namespace ORTS.Common
         {
             AssertGetUserValueType(expectedType);
 
-            var buffer = new String('\0', 256);
-            while (true)
-            {
-                var length = NativeMethods.GetPrivateProfileString(Section, name, null, buffer, buffer.Length, FilePath);
-                if (length < buffer.Length - 1)
-                {
-                    buffer = buffer.Substring(0, length);
-                    break;
-                }
-                buffer = new String('\0', buffer.Length * 2);
-            }
+            var buffer = ManagedIni.GetString(FilePath, Section, name) ?? "";
             if (buffer.Length == 0)
                 return null;
 
@@ -487,7 +458,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, bool value)
 		{
-			NativeMethods.WritePrivateProfileString(Section, name, "bool:" + (value ? "true" : "false"), FilePath);
+			ManagedIni.WriteString(FilePath, Section, name, "bool:" + (value ? "true" : "false"));
 		}
 
         /// <summary>
@@ -497,7 +468,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, int value)
         {
-            NativeMethods.WritePrivateProfileString(Section, name, "int:" + Uri.EscapeDataString(value.ToString(CultureInfo.InvariantCulture)), FilePath);
+            ManagedIni.WriteString(FilePath, Section, name, "int:" + Uri.EscapeDataString(value.ToString(CultureInfo.InvariantCulture)));
         }
 
         /// <summary>
@@ -507,7 +478,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, long value)
         {
-            NativeMethods.WritePrivateProfileString(Section, name, "long:" + Uri.EscapeDataString(value.ToString(CultureInfo.InvariantCulture)), FilePath);
+            ManagedIni.WriteString(FilePath, Section, name, "long:" + Uri.EscapeDataString(value.ToString(CultureInfo.InvariantCulture)));
         }
 
         /// <summary>
@@ -517,7 +488,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, DateTime value)
         {
-            NativeMethods.WritePrivateProfileString(Section, name, "DateTime:" + Uri.EscapeDataString(value.ToBinary().ToString(CultureInfo.InvariantCulture)), FilePath);
+            ManagedIni.WriteString(FilePath, Section, name, "DateTime:" + Uri.EscapeDataString(value.ToBinary().ToString(CultureInfo.InvariantCulture)));
         }
 
         /// <summary>
@@ -527,7 +498,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, TimeSpan value)
         {
-            NativeMethods.WritePrivateProfileString(Section, name, "TimeSpan:" + Uri.EscapeDataString(value.Ticks.ToString(CultureInfo.InvariantCulture)), FilePath);
+            ManagedIni.WriteString(FilePath, Section, name, "TimeSpan:" + Uri.EscapeDataString(value.Ticks.ToString(CultureInfo.InvariantCulture)));
         }
 
         /// <summary>
@@ -537,7 +508,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, string value)
 		{
-			NativeMethods.WritePrivateProfileString(Section, name, "string:" + Uri.EscapeDataString(value), FilePath);
+			ManagedIni.WriteString(FilePath, Section, name, "string:" + Uri.EscapeDataString(value));
 		}
 
         /// <summary>
@@ -547,7 +518,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, int[] value)
 		{
-			NativeMethods.WritePrivateProfileString(Section, name, "int[]:" + String.Join(",", ((int[])value).Select(v => Uri.EscapeDataString(v.ToString(CultureInfo.InvariantCulture))).ToArray()), FilePath);
+			ManagedIni.WriteString(FilePath, Section, name, "int[]:" + String.Join(",", ((int[])value).Select(v => Uri.EscapeDataString(v.ToString(CultureInfo.InvariantCulture))).ToArray()));
 		}
 
         /// <summary>
@@ -557,7 +528,7 @@ namespace ORTS.Common
         /// <param name="value">value of the setting</param>
         public override void SetUserValue(string name, string[] value)
 		{
-			NativeMethods.WritePrivateProfileString(Section, name, "string[]:" + String.Join(",", value.Select(v => Uri.EscapeDataString(v)).ToArray()), FilePath);
+			ManagedIni.WriteString(FilePath, Section, name, "string[]:" + String.Join(",", value.Select(v => Uri.EscapeDataString(v)).ToArray()));
 		}
 
         /// <summary>
@@ -566,7 +537,7 @@ namespace ORTS.Common
         /// <param name="name">name of the setting</param>
         public override void DeleteUserValue(string name)
 		{
-			NativeMethods.WritePrivateProfileString(Section, name, null, FilePath);
+			ManagedIni.WriteString(FilePath, Section, name, null);
 		}
 
         /// <summary>

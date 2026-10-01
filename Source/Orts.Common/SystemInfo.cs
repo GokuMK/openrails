@@ -18,13 +18,11 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Diagnostics;
-using SharpDX.DXGI;
 
 namespace ORTS.Common
 {
@@ -52,84 +50,16 @@ namespace ORTS.Common
                 Version = runtime.Groups[2].Value,
             };
 
-            try
+            // SPIKE(linux): WMI, DXGI and D3D11 probing replaced by managed runtime data.
+            OperatingSystem = new Platform
             {
-                // Almost nothing will correctly identify Windows 11 at this point, so we have to use WMI.
-                var operatingSystem = new ManagementClass("Win32_OperatingSystem").GetInstances().Cast<ManagementObject>().First();
-                OperatingSystem = new Platform
-                {
-                    Name = (string)operatingSystem["Caption"],
-                    Version = (string)operatingSystem["Version"],
-                    Architecture = RuntimeInformation.OSArchitecture.ToString(),
-                    Language = CultureInfo.CurrentUICulture.IetfLanguageTag,
-                    Languages = (string[])operatingSystem["MUILanguages"],
-                };
-            }
-            catch (Exception error)
-            {
-                // Likely to catch multiple exceptions like:
-                // Exception thrown: 'System.IO.InvalidDataException' in ORTS.Menu.dll
-                Trace.WriteLine(error);
-            }
-
-            NativeMethods.GlobalMemoryStatusEx(MemoryStatusExtended);
-            InstalledMemoryMB = (int)(MemoryStatusExtended.TotalPhysical / 1024 / 1024);
-
-            try
-            {
-                CPUs = new ManagementClass("Win32_Processor").GetInstances().Cast<ManagementObject>().Select(processor => new CPU
-                {
-                    Name = (string)processor["Name"],
-                    Manufacturer = (string)processor["Manufacturer"],
-                    ThreadCount = (uint)processor["ThreadCount"],
-                    MaxClockMHz = (uint)processor["MaxClockSpeed"],
-                }).ToList();
-            }
-            catch (Exception error)
-            {
-                Trace.WriteLine(error);
-            }
-
-            // The WMI data for AdapterRAM is unreliable, so we have to use DXGI to get the real numbers.
-            // Alas, DXGI doesn't give us the manufacturer name for the adapter, so we combine it with WMI.
-            var descriptions = new Factory1().Adapters.Select(adapter => adapter.Description).ToArray();
-            try
-            {
-                GPUs = new ManagementClass("Win32_VideoController").GetInstances().Cast<ManagementObject>().Select(adapter => new GPU
-                {
-                    Name = (string)adapter["Name"],
-                    Manufacturer = (string)adapter["AdapterCompatibility"],
-                    MemoryMB = (uint)((long)descriptions.FirstOrDefault(desc => desc.Description == (string)adapter["Name"]).DedicatedVideoMemory / 1024 / 1024),
-                }).ToList();
-            }
-            catch (Exception error)
-            {
-                Trace.WriteLine(error);
-            }
-
-            var featureLevels = new uint[] {
-                NativeMethods.D3D_FEATURE_LEVEL_12_2,
-                NativeMethods.D3D_FEATURE_LEVEL_12_1,
-                NativeMethods.D3D_FEATURE_LEVEL_12_0,
-                NativeMethods.D3D_FEATURE_LEVEL_11_1,
-                NativeMethods.D3D_FEATURE_LEVEL_11_0,
-                NativeMethods.D3D_FEATURE_LEVEL_10_1,
-                NativeMethods.D3D_FEATURE_LEVEL_10_0,
-                NativeMethods.D3D_FEATURE_LEVEL_9_3,
-                NativeMethods.D3D_FEATURE_LEVEL_9_2,
-                NativeMethods.D3D_FEATURE_LEVEL_9_1,
+                Name = RuntimeInformation.OSDescription,
+                Version = Environment.OSVersion.Version.ToString(),
+                Architecture = RuntimeInformation.OSArchitecture.ToString(),
+                Language = CultureInfo.CurrentUICulture.IetfLanguageTag,
             };
-            foreach (var featureLevel in featureLevels)
-            {
-                var levels = new uint[] { featureLevel };
-                try
-                {
-                    var rv = NativeMethods.D3D11CreateDevice(IntPtr.Zero, NativeMethods.D3D_DRIVER_TYPE_HARDWARE, IntPtr.Zero, 0, levels, levels.Length, NativeMethods.D3D11_SDK_VERSION, IntPtr.Zero, out uint level, IntPtr.Zero);
-                    if (level == featureLevel) Direct3DFeatureLevels.Add(string.Format("{0}_{1}", level >> 12 & 0xF, level >> 8 & 0xF));
-                }
-                catch (EntryPointNotFoundException) { }
-                catch (DllNotFoundException) { }
-            }
+            InstalledMemoryMB = (int)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024);
+            CPUs.Add(new CPU { Name = RuntimeInformation.ProcessArchitecture.ToString(), ThreadCount = (uint)Environment.ProcessorCount });
         }
 
         public static readonly Platform Application;

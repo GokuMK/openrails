@@ -1,4 +1,4 @@
-// COPYRIGHT 2009 - 2024 by the Open Rails project.
+﻿// COPYRIGHT 2009 - 2024 by the Open Rails project.
 //
 // This file is part of Open Rails.
 //
@@ -15,17 +15,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Open Rails.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 
 namespace ORTS.Common
 {
     public static class ApplicationInfo
     {
         public static string ProcessFile => Process.GetCurrentProcess().MainModule.FileName;
-        public static string ProcessDirectory => Path.GetDirectoryName(ProcessFile);
-        static FileVersionInfo VersionInfo => FileVersionInfo.GetVersionInfo(ProcessFile);
-        public static string ProductName => VersionInfo.ProductName;
-        public static string ApplicationName => VersionInfo.FileDescription;
+        // The application directory, also when started as "dotnet <app>.dll".
+        public static string ProcessDirectory => Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory);
+        // Read from assembly metadata: a native app host outside Windows has no version resource.
+        static Assembly EntryAssembly => Assembly.GetEntryAssembly();
+        public static string ProductName => EntryAssembly?.GetCustomAttribute<AssemblyProductAttribute>()?.Product;
+        public static string ApplicationName => EntryAssembly?.GetCustomAttribute<AssemblyTitleAttribute>()?.Title;
     }
 }

@@ -41,7 +41,7 @@ namespace Orts.Viewer3D.Processes
         public Profiler Profiler { get; private set; }
 
         readonly Game Game;
-        readonly Form GameForm;
+        Cursor LastCursor; // SPIKE(linux): WinForms game form replaced by MonoGame window/cursor APIs.
         readonly Point GameWindowSize;
         readonly WatchdogToken WatchdogToken;
 
@@ -68,12 +68,18 @@ namespace Orts.Viewer3D.Processes
         public static float[] ShadowMapLimit; // diameter of shadow map far edge from camera
         public bool isFullScreen { get; set; }
 
+        // Time per frame for graphics work queued by other threads.
+        static readonly TimeSpan GpuWorkBudget = TimeSpan.FromMilliseconds(10);
+
         internal RenderProcess(Game game)
         {
             Game = game;
-            GameForm = (Form)Control.FromHandle(Game.Window.Handle);
 
             WatchdogToken = new WatchdogToken(System.Threading.Thread.CurrentThread);
+
+            // The backend decides this: MonoGame DesktopGL (the spike's backend on every OS) marshals
+            // graphics work to this thread; WindowsDX would use inline dispatch (queued: false).
+            GpuDispatcher.Initialize(queued: true);
 
             Profiler = new Profiler("Render");
             Profiler.SetThread();
@@ -94,6 +100,7 @@ namespace Orts.Viewer3D.Processes
             Game.IsFixedTimeStep = true;
             Game.TargetElapsedTime = TimeSpan.FromMilliseconds(100);
             Game.InactiveSleepTime = TimeSpan.FromMilliseconds(100);
+
 
             // Set up the rest of the graphics according to the settings.
             GraphicsDeviceManager.SynchronizeWithVerticalRetrace = Game.Settings.VerticalSync;
@@ -148,9 +155,9 @@ namespace Orts.Viewer3D.Processes
             isFullScreen = pp.IsFullScreen;
             if (pp.IsFullScreen)
             {
-                var screen = Screen.FromControl(GameForm);
-                pp.BackBufferWidth = screen.Bounds.Width;
-                pp.BackBufferHeight = screen.Bounds.Height;
+                var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+                pp.BackBufferWidth = displayMode.Width;
+                pp.BackBufferHeight = displayMode.Height;
             }
             else
             {
@@ -261,14 +268,22 @@ namespace Orts.Viewer3D.Processes
 
         internal void Update(GameTime gameTime)
         {
+            // While loading (10 FPS fixed step), serve the loader's graphics work for most of each frame period;
+            // otherwise run what is queued within a small per-frame budget.
+            if (Game.IsFixedTimeStep)
+                GpuDispatcher.ServeFor(TimeSpan.FromTicks(Game.TargetElapsedTime.Ticks * 8 / 10));
+            else
+                GpuDispatcher.RunPending(GpuWorkBudget);
+
             if (IsMouseVisible != Game.IsMouseVisible)
                 Game.IsMouseVisible = IsMouseVisible;
 
             // Restrict `ActualCursor` to the main window so that it won't affect other popup
             // windows, such as the Dispatch window. This prevents cursor flickering.
-            if (GameForm.Focused == true)
+            if (Game.IsActive && ActualCursor != LastCursor)
             {
-                GameForm.Cursor = ActualCursor;
+                Microsoft.Xna.Framework.Input.Mouse.SetCursor(ActualCursor.MouseCursor);
+                LastCursor = ActualCursor;
             }
 
             if (ToggleFullScreenRequested)

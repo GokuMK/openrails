@@ -130,8 +130,7 @@ namespace Orts.Viewer3D
         {
             if (DummyVertexBuffer == null)
             {
-                var vertexBuffer = new VertexBuffer(graphicsDevice, new VertexDeclaration(ShapeInstanceData.SizeInBytes, ShapeInstanceData.VertexElements), 1, BufferUsage.WriteOnly);
-                vertexBuffer.SetData(new Matrix[] { Matrix.Identity });
+                var vertexBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, new VertexDeclaration(ShapeInstanceData.SizeInBytes, ShapeInstanceData.VertexElements), 1, BufferUsage.WriteOnly, new Matrix[] { Matrix.Identity });
                 DummyVertexBuffer = vertexBuffer;
             }
             return DummyVertexBuffer;

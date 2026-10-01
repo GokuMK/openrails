@@ -18,6 +18,7 @@
 // This file is the responsibility of the 3D & Environment Team. 
 
 using System.Threading;
+using ORTS.Common;
 
 namespace Orts.Processes
 {
@@ -30,6 +31,8 @@ namespace Orts.Processes
         readonly ManualResetEvent TerminateEvent = new ManualResetEvent(false);
         readonly WaitHandle[] StartEvents;
         readonly WaitHandle[] FinishEvents;
+        readonly WaitHandle[] StartEventsAndQueue;
+        readonly WaitHandle[] FinishEventsAndQueue;
 #if DEBUG_THREAD_PERFORMANCE
         StreamWriter DebugFileStream;
 #endif
@@ -39,6 +42,8 @@ namespace Orts.Processes
             Finished = true;
             StartEvents = new[] { StartEvent, TerminateEvent };
             FinishEvents = new[] { FinishEvent, TerminateEvent };
+            StartEventsAndQueue = new[] { StartEvent, TerminateEvent, GpuDispatcher.QueueWaitHandle };
+            FinishEventsAndQueue = new[] { FinishEvent, TerminateEvent, GpuDispatcher.QueueWaitHandle };
 #if DEBUG_THREAD_PERFORMANCE
             DebugFileStream = new StreamWriter(File.OpenWrite("debug_thread_" + name.ToLowerInvariant() + "_state.csv"));
             DebugFileStream.Write("Time,Event\n");
@@ -79,7 +84,8 @@ namespace Orts.Processes
 #if DEBUG_THREAD_PERFORMANCE
             DebugFileStream.Write("{0},WTS+\n", DateTime.Now.Ticks);
 #endif
-            WaitHandle.WaitAny(StartEvents);
+            // Runs queued graphics work if this is the render thread, so the waited-for process cannot block on it.
+            GpuDispatcher.WaitAny(StartEvents, StartEventsAndQueue);
 #if DEBUG_THREAD_PERFORMANCE
             DebugFileStream.Write("{0},WTS-\n", DateTime.Now.Ticks);
 #endif
@@ -90,7 +96,8 @@ namespace Orts.Processes
 #if DEBUG_THREAD_PERFORMANCE
             DebugFileStream.Write("{0},WTF+\n", DateTime.Now.Ticks);
 #endif
-            WaitHandle.WaitAny(FinishEvents);
+            // Runs queued graphics work if this is the render thread, so the waited-for process cannot block on it.
+            GpuDispatcher.WaitAny(FinishEvents, FinishEventsAndQueue);
 #if DEBUG_THREAD_PERFORMANCE
             DebugFileStream.Write("{0},WTF-\n", DateTime.Now.Ticks);
 #endif

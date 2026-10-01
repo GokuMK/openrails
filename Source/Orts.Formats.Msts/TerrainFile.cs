@@ -317,7 +317,7 @@ namespace Orts.Formats.Msts
             Small = 15, // 2KM^2
         }
 
-        const string Hex = "0123456789ABCDEF";
+        const string Hex = "0123456789abcdef"; // SPIKE(linux): MSTS tile names use lowercase hex
 
         public static string FromTileXZ(int tileX, int tileZ, Zoom zoom)
         {

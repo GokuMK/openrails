@@ -136,7 +136,7 @@ namespace Orts.Viewer3D
             // the print screen key as being down. Something is eating it or something. So here we simply query that
             // key directly and forcibly add it to the list of pressed keys.
             var keys = new List<Keys>(keyboardState.GetPressedKeys());
-            if ((GetAsyncKeyState(Keys.PrintScreen) & 0x8000) != 0)
+            if (OperatingSystem.IsWindows() && (GetAsyncKeyState(Keys.PrintScreen) & 0x8000) != 0)
                 keys.Add(Keys.PrintScreen);
             return keys.ToArray();
         }

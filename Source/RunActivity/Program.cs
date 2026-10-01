@@ -52,16 +52,14 @@ namespace Orts
         [ThreadName("Render")]
         static void Main(string[] args)
         {
-            var options = args.Where(a => a.StartsWith("-") || a.StartsWith("/")).Select(a => a.Substring(1));
+            var options = args.Where(a => a.StartsWith("-") || (OperatingSystem.IsWindows() && a.StartsWith("/"))).Select(a => a.Substring(1));
             var settings = new UserSettings(options);
 
-            //enables loading of dll for specific architecture(32 or 64bit) from distinct folders, useful when both versions require same name (as for OpenAL32.dll)
-            string path = Path.Combine(ApplicationInfo.ProcessDirectory, "Native");
-            path = Path.Combine(path, (Environment.Is64BitProcess) ? "X64" : "X86");
-            NativeMethods.SetDllDirectory(path);
-
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+            // SPIKE(linux): SetDllDirectory and WinForms application setup removed.
+            // SPIKE(linux): map the Windows OpenAL name to MonoGame's packaged OpenAL Soft
+            // (openal.dll / libopenal.so) on every OS (review PR 15).
+            NativeLibrary.SetDllImportResolver(typeof(Program).Assembly, (name, assembly, searchPath) =>
+                name == "OpenAL32.dll" ? NativeLibrary.Load("openal", assembly, searchPath) : IntPtr.Zero);
 
             var game = new Game(settings);
             game.PushState(new GameStateRunActivity(args));

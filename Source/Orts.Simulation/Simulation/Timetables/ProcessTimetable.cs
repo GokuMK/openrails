@@ -1154,7 +1154,7 @@ namespace Orts.Simulation.Timetables
         {
             validPath = true;
 
-            string pathDirectory = Path.Combine(simulator.RoutePath, "Paths");
+            string pathDirectory = Path.Combine(simulator.RoutePath, "PATHS");
             string formedpathFilefull = Path.Combine(pathDirectory, pathstring);
             string pathExtension = Path.GetExtension(formedpathFilefull);
 
@@ -1348,7 +1348,7 @@ namespace Orts.Simulation.Timetables
                 TTTrain.OrgAINumber = TTTrain.Number;
 
                 // Derive various directory paths
-                string pathDirectory = Path.Combine(ttInfo.simulator.RoutePath, "Paths");
+                string pathDirectory = Path.Combine(ttInfo.simulator.RoutePath, "PATHS");
 
                 // No path defined: exit
                 if (String.IsNullOrEmpty(fileStrings[pathRow][columnIndex]))
@@ -1359,8 +1359,8 @@ namespace Orts.Simulation.Timetables
 
                 string pathFilefull = ExtractPathString(pathDirectory, fileStrings[pathRow][columnIndex], ref TTTrain);
 
-                string trainsDirectory = Path.Combine(ttInfo.simulator.BasePath, "Trains");
-                string consistDirectory = Path.Combine(trainsDirectory, "Consists");
+                string trainsDirectory = Path.Combine(ttInfo.simulator.BasePath, "TRAINS");
+                string consistDirectory = Path.Combine(trainsDirectory, "CONSISTS");
 
                 string consistdef = fileStrings[consistRow][columnIndex];
 
@@ -1372,7 +1372,7 @@ namespace Orts.Simulation.Timetables
                 }
 
                 List<consistInfo> consistdetails = ProcessConsistInfo(consistdef);
-                string trainsetDirectory = Path.Combine(trainsDirectory, "trainset");
+                string trainsetDirectory = Path.Combine(trainsDirectory, "TRAINSET");
 
                 // EExtract path
                 string pathExtension = Path.GetExtension(pathFilefull);
@@ -2464,8 +2464,8 @@ namespace Orts.Simulation.Timetables
                         wagonFilePath = Path.ChangeExtension(wagonFilePath, ".eng");
                     else if (wagon.IsEOT)
                     {
-                        wagonFolder = simulator.BasePath + @"\trains\orts_eot\" + wagon.Folder;
-                        wagonFilePath = wagonFolder + @"\" + wagon.Name + ".eot";
+                        wagonFolder = simulator.BasePath + "/TRAINS/ORTS_EOT/" + wagon.Folder;
+                        wagonFilePath = wagonFolder + "/" + wagon.Name + ".eot";
                     }
 
                     if (!File.Exists(wagonFilePath))
@@ -3024,7 +3024,7 @@ namespace Orts.Simulation.Timetables
                 bool loadPathNoFailure = true;
                 TTTrain formedTrain = new TTTrain(simulator, TTTrain);
 
-                string pathDirectory = Path.Combine(simulator.RoutePath, "Paths");
+                string pathDirectory = Path.Combine(simulator.RoutePath, "PATHS");
                 string formedpathFilefull = Path.Combine(pathDirectory, DisposeDetails.RunRoundPath);
                 string pathExtension = Path.GetExtension(formedpathFilefull);
                 if (String.IsNullOrEmpty(pathExtension))

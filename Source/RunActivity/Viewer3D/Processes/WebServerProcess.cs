@@ -75,7 +75,7 @@ namespace Orts.Viewer3D.Processes
             EndPointManager.UseIpv6 = true;
             try
             {
-                using (EmbedIO.WebServer server = WebServer.CreateWebServer($"http://*:{Game.Settings.WebServerPort}", myWebContentPath()))
+                using (EmbedIO.WebServer server = WebServer.CreateWebServer($"http://localhost:{Game.Settings.WebServerPort}", myWebContentPath()) /* SPIKE(linux): localhost only on the dev server */)
                     server.RunAsync(StopServer.Token).Wait();
             }
             catch(AggregateException ex)

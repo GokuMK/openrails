@@ -27,9 +27,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Font = System.Drawing.Font;
 using FontStyle = System.Drawing.FontStyle;
-using GraphicsUnit = System.Drawing.GraphicsUnit;
 
 namespace Orts.Viewer3D.Popups
 {
@@ -55,7 +53,7 @@ namespace Orts.Viewer3D.Popups
         /// size and style.</returns>
         public WindowTextFont GetScaled(string fontFamily, float sizeInPt, FontStyle style)
         {
-            return GetExact(fontFamily, sizeInPt * System.Drawing.Graphics.FromHwnd(IntPtr.Zero).DpiY / 96, style);
+            return GetExact(fontFamily, sizeInPt * Display.DpiY / 96, style);
         }
 
         /// <summary>
@@ -92,7 +90,7 @@ namespace Orts.Viewer3D.Popups
         /// size and style with the given outline size.</returns>
         public WindowTextFont GetScaled(string fontFamily, float sizeInPt, FontStyle style, int outlineSize)
         {
-            return GetExact(fontFamily, sizeInPt * System.Drawing.Graphics.FromHwnd(IntPtr.Zero).DpiY / 96, style, outlineSize);
+            return GetExact(fontFamily, sizeInPt * Display.DpiY / 96, style, outlineSize);
         }
 
         /// <summary>
@@ -133,7 +131,7 @@ namespace Orts.Viewer3D.Popups
 
     public sealed class WindowTextFont
     {
-        readonly Font Font;
+        readonly GlyphRasterizer Font;
         readonly int FontHeight;
         readonly int OutlineSize;
 
@@ -144,8 +142,8 @@ namespace Orts.Viewer3D.Popups
 
         internal WindowTextFont(string fontFamily, float sizeInPt, FontStyle style, int outlineSize)
         {
-            Font = new Font(fontFamily, (int)Math.Round(sizeInPt * 96 / 72), style, GraphicsUnit.Pixel);
-            FontHeight = Font.Height;
+            Font = new GlyphRasterizer(fontFamily, (int)Math.Round(sizeInPt * 96 / 72), style); // SPIKE(linux)
+            FontHeight = Font.LineHeight;
             OutlineSize = outlineSize;
             Characters = new CharacterGroup(Font, OutlineSize);
             if (Viewer3D.Viewer.Catalog != null)
@@ -344,10 +342,8 @@ namespace Orts.Viewer3D.Popups
                 indexData[i * 6 + 4] = (short)(i * 4 + 3);
                 indexData[i * 6 + 5] = (short)(i * 4 + 2);
             }
-            var vertexBuffer = new VertexBuffer(graphicsDevice, typeof(VertexPositionTexture), vertexData.Length, BufferUsage.WriteOnly);
-            vertexBuffer.SetData(vertexData);
-            var indexBuffer = new IndexBuffer(graphicsDevice, typeof(short), indexData.Length, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indexData);
+            var vertexBuffer = GpuResources.CreateVertexBuffer(graphicsDevice, typeof(VertexPositionTexture), vertexData.Length, BufferUsage.WriteOnly, vertexData);
+            var indexBuffer = GpuResources.CreateIndexBuffer(graphicsDevice, typeof(short), indexData.Length, BufferUsage.WriteOnly, indexData);
             return new DrawData(Characters, vertexBuffer, vertexData.Length, indexBuffer, text.Length * 2);
         }
 
@@ -411,9 +407,7 @@ namespace Orts.Viewer3D.Popups
         sealed internal class CharacterGroup
         {
             const int BoxSpacing = 1;
-            const System.Windows.Forms.TextFormatFlags Flags = System.Windows.Forms.TextFormatFlags.NoPadding | System.Windows.Forms.TextFormatFlags.NoPrefix | System.Windows.Forms.TextFormatFlags.SingleLine | System.Windows.Forms.TextFormatFlags.Top;
-
-            readonly Font Font;
+            readonly GlyphRasterizer Font;
             readonly int OutlineSize;
             readonly char[] Characters;
             public readonly Rectangle[] Boxes;
@@ -422,7 +416,7 @@ namespace Orts.Viewer3D.Popups
             public readonly Vector3[] AbcWidths;
             public Texture2D Texture { get; private set; }
 
-            public CharacterGroup(Font font, int outlineSize)
+            public CharacterGroup(GlyphRasterizer font, int outlineSize)
             {
                 Font = font;
                 OutlineSize = outlineSize;
@@ -438,7 +432,7 @@ namespace Orts.Viewer3D.Popups
             {
             }
 
-            CharacterGroup(char[] characters, Font mergeFont, int mergeOutlineSize, char[] mergeCharacters, Rectangle[] mergeBoxes, Vector3[] mergeAbcWidths)
+            CharacterGroup(char[] characters, GlyphRasterizer mergeFont, int mergeOutlineSize, char[] mergeCharacters, Rectangle[] mergeBoxes, Vector3[] mergeAbcWidths)
             {
                 Font = mergeFont;
                 OutlineSize = mergeOutlineSize;
@@ -446,54 +440,31 @@ namespace Orts.Viewer3D.Popups
                 Boxes = new Rectangle[Characters.Length];
                 AbcWidths = new Vector3[Characters.Length];
 
-                // Boring device context for APIs.
-                var hdc = NativeMethods.CreateCompatibleDC(IntPtr.Zero);
-                NativeMethods.SelectObject(hdc, Font.ToHfont());
-                try
+                // SPIKE(linux): GDI glyph metrics replaced by GlyphRasterizer.
+                var mergeIndex = 0;
+                var spacing = BoxSpacing + OutlineSize;
+                var x = spacing;
+                var y = spacing;
+                var height = Font.LineHeight + 1;
+                for (var i = 0; i < Characters.Length; i++)
                 {
-                    // Get character glyph indices to identify those not supported by this font.
-                    var charactersGlyphs = new short[Characters.Length];
-                    if (NativeMethods.GetGlyphIndices(hdc, new String(Characters), Characters.Length, charactersGlyphs, NativeMethods.GgiFlags.MarkNonexistingGlyphs) != Characters.Length) throw new Exception();
-
-                    var mergeIndex = 0;
-                    var spacing = BoxSpacing + OutlineSize;
-                    var x = spacing;
-                    var y = spacing;
-                    var height = (int)Math.Ceiling(Font.GetHeight()) + 1;
-                    for (var i = 0; i < Characters.Length; i++)
+                    // Copy ABC widths from merge data or calculate ourselves.
+                    if ((mergeIndex < mergeCharacters.Length) && (mergeCharacters[mergeIndex] == Characters[i]))
                     {
-                        // Copy ABC widths from merge data or calculate ourselves.
-                        if ((mergeIndex < mergeCharacters.Length) && (mergeCharacters[mergeIndex] == Characters[i]))
-                        {
-                            AbcWidths[i] = mergeAbcWidths[mergeIndex];
-                            mergeIndex++;
-                        }
-                        else if (charactersGlyphs[i] != -1)
-                        {
-                            NativeStructs.AbcFloatWidth characterAbcWidth;
-                            if (!NativeMethods.GetCharABCWidthsFloat(hdc, Characters[i], Characters[i], out characterAbcWidth)) throw new Exception();
-                            AbcWidths[i] = new Vector3(characterAbcWidth.A, characterAbcWidth.B, characterAbcWidth.C);
-                        }
-                        else
-                        {
-                            // This is a bit of a cheat, but is used when the chosen font does not have the character itself but it will render anyway (e.g. through font fallback).
-                            AbcWidths[i] = new Vector3(0, System.Windows.Forms.TextRenderer.MeasureText(String.Format(" {0} ", Characters[i]), Font, System.Drawing.Size.Empty, Flags).Width - System.Windows.Forms.TextRenderer.MeasureText("  ", Font, System.Drawing.Size.Empty, Flags).Width, 0);
-                        }
-                        Boxes[i] = new Rectangle(x, y, (int)(Math.Max(0, AbcWidths[i].X) + AbcWidths[i].Y + Math.Max(0, AbcWidths[i].Z) + 2 * OutlineSize), height + 2 * OutlineSize);
-                        x += Boxes[i].Width + BoxSpacing;
-                        if (x >= 256)
-                        {
-                            x = BoxSpacing;
-                            y += Boxes[i].Height + BoxSpacing;
-                        }
+                        AbcWidths[i] = mergeAbcWidths[mergeIndex];
+                        mergeIndex++;
                     }
-
-                    // TODO: Copy boxes from the merge data.
-                }
-                finally
-                {
-                    // Cleanup.
-                    NativeMethods.DeleteDC(hdc);
+                    else
+                    {
+                        AbcWidths[i] = Font.GetAbcWidths(Characters[i]);
+                    }
+                    Boxes[i] = new Rectangle(x, y, (int)(Math.Max(0, AbcWidths[i].X) + AbcWidths[i].Y + Math.Max(0, AbcWidths[i].Z) + 2 * OutlineSize), height + 2 * OutlineSize);
+                    x += Boxes[i].Width + BoxSpacing;
+                    if (x >= 256)
+                    {
+                        x = BoxSpacing;
+                        y += Boxes[i].Height + BoxSpacing;
+                    }
                 }
                 BoxesMaxRight = Boxes.Max(b => b.Right);
                 BoxesMaxBottom = Boxes.Max(b => b.Bottom);
@@ -509,23 +480,13 @@ namespace Orts.Viewer3D.Popups
                 return Array.BinarySearch(Characters, character);
             }
 
-            byte[] GetBitmapData(System.Drawing.Rectangle rectangle)
+            byte[] GetBitmapData(Rectangle rectangle)
             {
-                var bitmap = new System.Drawing.Bitmap(rectangle.Width, rectangle.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-                var buffer = new byte[4 * rectangle.Width * rectangle.Height];
-                using (var g = System.Drawing.Graphics.FromImage(bitmap))
-                {
-                    // Clear to black.
-                    g.FillRectangle(new System.Drawing.SolidBrush(System.Drawing.Color.Black), rectangle);
-
-                    // Draw the text using system text drawing (yay, ClearType).
-                    for (var i = 0; i < Characters.Length; i++)
-                        System.Windows.Forms.TextRenderer.DrawText(g, Characters[i].ToString(), Font, new System.Drawing.Point(Boxes[i].X + OutlineSize, Boxes[i].Y + OutlineSize), System.Drawing.Color.White, Flags);
-                }
-                var bits = bitmap.LockBits(rectangle, System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap.PixelFormat);
-                Marshal.Copy(bits.Scan0, buffer, 0, buffer.Length);
-                bitmap.UnlockBits(bits);
-                return buffer;
+                // SPIKE(linux): SkiaSharp rasterization replaces TextRenderer.DrawText.
+                var origins = new Point[Characters.Length];
+                for (var i = 0; i < Characters.Length; i++)
+                    origins[i] = new Point(Boxes[i].X + OutlineSize, Boxes[i].Y + OutlineSize);
+                return Font.Render(rectangle.Width, rectangle.Height, Characters, origins);
             }
 
             [CallOnThread("Loader")]
@@ -534,7 +495,7 @@ namespace Orts.Viewer3D.Popups
                 if (Texture != null || Characters.Length == 0)
                     return;
 
-                var rectangle = new System.Drawing.Rectangle(0, 0, BoxesMaxRight, BoxesMaxBottom);
+                var rectangle = new Rectangle(0, 0, BoxesMaxRight, BoxesMaxBottom);
                 var buffer = GetBitmapData(rectangle);
 
                 for (var y = 0; y < rectangle.Height; y++)
@@ -580,56 +541,14 @@ namespace Orts.Viewer3D.Popups
                     rectangle.Height *= 2;
                 }
 
-                var texture = new Texture2D(graphicsDevice, rectangle.Width, rectangle.Height, false, SurfaceFormat.Color); // Color = 32bppRgb
-                texture.SetData(buffer);
+                var texture = GpuDispatcher.Invoke(() =>
+                {
+                    var atlas = new Texture2D(graphicsDevice, rectangle.Width, rectangle.Height, false, SurfaceFormat.Color); // Color = 32bppRgb
+                    atlas.SetData(buffer);
+                    return atlas;
+                });
                 Texture = texture;
             }
         }
-    }
-
-    static class NativeStructs
-    {
-        [DebuggerDisplay("{First} + {Second} = {Amount}")]
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-        public struct KerningPair
-        {
-            public char First;
-            public char Second;
-            public int Amount;
-        }
-
-        [DebuggerDisplay("{A} + {B} + {C}")]
-        [StructLayout(LayoutKind.Sequential)]
-        public struct AbcFloatWidth
-        {
-            public float A;
-            public float B;
-            public float C;
-        }
-    }
-
-    static class NativeMethods
-    {
-        [DllImport("gdi32.dll", SetLastError = true)]
-        public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
-
-        [DllImport("gdi32.dll", SetLastError = true)]
-        public static extern IntPtr SelectObject(IntPtr hdc, IntPtr hObject);
-
-        [DllImport("gdi32.dll", SetLastError = true)]
-        public static extern bool DeleteDC(IntPtr hdc);
-
-        [Flags]
-        public enum GgiFlags : uint
-        {
-            None = 0,
-            MarkNonexistingGlyphs = 1,
-        }
-
-        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern uint GetGlyphIndices(IntPtr hdc, string text, int textLength, [Out] short[] indices, GgiFlags flags);
-
-        [DllImport("gdi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern bool GetCharABCWidthsFloat(IntPtr hdc, uint firstChar, uint lastChar, out NativeStructs.AbcFloatWidth abcFloatWidths);
     }
 }

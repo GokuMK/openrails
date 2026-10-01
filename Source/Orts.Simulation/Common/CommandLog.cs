@@ -128,23 +128,8 @@ namespace Orts.Common
         /// </summary>
         /// <param name="filePath"></param>
         public void SaveLog( string filePath ) {
-            Stream stream = null;
-            try {
-                stream = new FileStream( filePath, FileMode.Create );
-                BinaryFormatter formatter = new BinaryFormatter();
-                // Re-sort based on time as tests show that some commands are deferred.
-                CommandList.Sort( ( x, y ) => x.Time.CompareTo( y.Time ) );
-                formatter.Serialize( stream, CommandList );
-            } catch( IOException ) {
-                // Do nothing but warn, ignoring errors.
-                Trace.TraceWarning( "SaveLog error writing command log " + filePath );
-            } finally {
-                if( stream != null )
-                {
-                    stream.Close();
-                    Trace.WriteLine("\nList of commands to replay saved");
-                }
-            }
+            // SPIKE(linux): BinaryFormatter throws on .NET 9+; replay format pending (review PR 6).
+            Trace.TraceWarning( "Replay log not saved in the Linux spike: " + filePath );
         }
 
         /// <summary>
@@ -152,17 +137,8 @@ namespace Orts.Common
         /// </summary>
         /// <param name="fullFilePath"></param>
         public void LoadLog( string filePath ) {
-            Stream stream = null;
-            try {
-                stream = new FileStream( filePath, FileMode.Open );
-                BinaryFormatter formatter = new BinaryFormatter();
-                CommandList = (List<ICommand>)formatter.Deserialize( stream );
-            } catch( IOException ) {
-                // Do nothing but warn, ignoring errors.
-                Trace.TraceWarning( "LoadLog error reading command log " + filePath );
-            } finally {
-                if( stream != null ) { stream.Close(); }
-            }
+            // SPIKE(linux): BinaryFormatter throws on .NET 9+; replay format pending (review PR 6).
+            Trace.TraceWarning( "Replay log not loaded in the Linux spike: " + filePath );
         }
 
         public static void ReportReplayCommands( List<ICommand> list ) {
