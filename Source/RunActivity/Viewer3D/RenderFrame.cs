@@ -376,6 +376,12 @@ namespace Orts.Viewer3D
         // Shared shadow map data.
         static RenderTarget2D[] ShadowMap;
         static RenderTarget2D[] ShadowMapRenderTarget;
+
+        // Shadow maps hold depth and depth squared (variance shadow mapping) as 16-bit normalised values.
+        // SPIKE(linux): MonoGame DesktopGL maps Rg32 to the integer format GL_RG16UI, which cannot be rendered to or
+        // sampled as normalised data, so every pixel read as "in shadow". Rgba64 (GL_RGBA16) gives the same 16-bit
+        // normalised channels as WindowsDX's Rg32 (R16G16_UNORM), at twice the memory.
+        static readonly SurfaceFormat ShadowMapFormat = SurfaceFormat.Rgba64;
         static Vector3 SteppedSolarDirection = Vector3.UnitX;
 
         // Local shadow map data.
@@ -423,8 +429,8 @@ namespace Orts.Viewer3D
                     ShadowMapRenderTarget = new RenderTarget2D[RenderProcess.ShadowMapCount];
                     for (var shadowMapIndex = 0; shadowMapIndex < RenderProcess.ShadowMapCount; shadowMapIndex++)
                     {
-                        ShadowMapRenderTarget[shadowMapIndex] = new RenderTarget2D(Game.RenderProcess.GraphicsDevice, shadowMapSize, shadowMapSize, false, SurfaceFormat.Rg32, DepthFormat.Depth16, 0, RenderTargetUsage.PreserveContents);
-                        ShadowMap[shadowMapIndex] = new RenderTarget2D(Game.RenderProcess.GraphicsDevice, shadowMapSize, shadowMapSize, false, SurfaceFormat.Rg32, DepthFormat.Depth16, 0, RenderTargetUsage.PreserveContents);
+                        ShadowMapRenderTarget[shadowMapIndex] = new RenderTarget2D(Game.RenderProcess.GraphicsDevice, shadowMapSize, shadowMapSize, false, ShadowMapFormat, DepthFormat.Depth16, 0, RenderTargetUsage.PreserveContents);
+                        ShadowMap[shadowMapIndex] = new RenderTarget2D(Game.RenderProcess.GraphicsDevice, shadowMapSize, shadowMapSize, false, ShadowMapFormat, DepthFormat.Depth16, 0, RenderTargetUsage.PreserveContents);
                     }
                 }
 
