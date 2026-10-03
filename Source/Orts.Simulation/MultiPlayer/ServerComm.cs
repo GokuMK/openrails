@@ -41,7 +41,7 @@ namespace Orts.MultiPlayer
 		public ServerComm(Server s, int port)
 		{
 			Server = s;
-			this.tcpListener = new TcpListener(IPAddress.Any, port);
+			this.tcpListener = new TcpListener(IPAddress.Loopback, port); // SPIKE(linux): loopback only on the development server
 			this.listenThread = new Thread(new ThreadStart(ListenForClients));
             this.listenThread.Name = "Multiplayer Server";
 			this.listenThread.Start();
