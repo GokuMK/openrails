@@ -58,8 +58,17 @@ namespace Orts
             // SPIKE(linux): SetDllDirectory and WinForms application setup removed.
             // SPIKE(linux): map the Windows OpenAL name to MonoGame's packaged OpenAL Soft
             // (openal.dll / libopenal.so) on every OS (review PR 15).
+            // SDL2 (message boxes) is MonoGame's packaged library, under its platform file name.
             NativeLibrary.SetDllImportResolver(typeof(Program).Assembly, (name, assembly, searchPath) =>
-                name == "OpenAL32.dll" ? NativeLibrary.Load("openal", assembly, searchPath) : IntPtr.Zero);
+            {
+                if (name == "OpenAL32.dll")
+                    return NativeLibrary.Load("openal", assembly, searchPath);
+                if (name == "SDL2")
+                    foreach (var candidate in new[] { "SDL2.dll", "libSDL2-2.0.so.0", "libSDL2-2.0.0.dylib", "libSDL2.so" })
+                        if (NativeLibrary.TryLoad(candidate, assembly, searchPath, out var handle))
+                            return handle;
+                return IntPtr.Zero;
+            });
 
             var game = new Game(settings);
             game.PushState(new GameStateRunActivity(args));

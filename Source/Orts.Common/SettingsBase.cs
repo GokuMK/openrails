@@ -41,6 +41,15 @@ namespace ORTS.Common
             SettingsFilePath = Path.Combine(ApplicationInfo.ProcessDirectory, DefaultSettingsFileName);
             if (File.Exists(SettingsFilePath))
                 RegistryKey = null;
+            else if (!OperatingSystem.IsWindows())
+            {
+                // There is no registry: use the user configuration directory (for example ~/.config/Open Rails),
+                // which also holds the saves. An INI file next to the program still takes precedence (portable mode).
+                var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationInfo.ProductName);
+                Directory.CreateDirectory(directory);
+                SettingsFilePath = Path.Combine(directory, DefaultSettingsFileName);
+                RegistryKey = null;
+            }
             else
                 SettingsFilePath = null;
         }

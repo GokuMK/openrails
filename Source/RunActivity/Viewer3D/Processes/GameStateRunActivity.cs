@@ -146,10 +146,15 @@ namespace Orts.Viewer3D.Processes
                 frame.AddPrimitive(TimetableLoadingBar.Material, TimetableLoadingBar, RenderPrimitiveGroup.Overlay, ref LoadingMatrix);
             }
 
-            base.Update(frame, totalRealSeconds);
+            // After a fatal load error the game is exiting; do not start the failed load again.
+            if (!LoadFailed)
+                base.Update(frame, totalRealSeconds);
         }
 
         static bool SpikeNoEffects;
+
+        // Set by the loader when loading failed fatally, read by the updater.
+        volatile bool LoadFailed;
 
         internal override void Load()
         {
@@ -261,6 +266,7 @@ namespace Orts.Viewer3D.Processes
                 }
                 catch (Exception error)
                 {
+                    LoadFailed = true;
                     // Turn off the watchdog since we're going down.
                     Game.WatchdogProcess.Stop();
                     Trace.WriteLine(new FatalException(error));

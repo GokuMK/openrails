@@ -21,7 +21,21 @@ namespace System.Windows.Forms
         {
             Console.Error.WriteLine("[{0}] {1}: {2}", icon, caption, text);
             Trace.WriteLine(string.Format("MessageBox [{0}] {1}: {2}", icon, caption, text));
-            return buttons == MessageBoxButtons.OK ? DialogResult.OK : DialogResult.Cancel;
+            var kind = icon == MessageBoxIcon.Error ? Orts.Viewer3D.Common.NativeMessageBox.Kind.Error
+                : icon == MessageBoxIcon.Warning ? Orts.Viewer3D.Common.NativeMessageBox.Kind.Warning
+                : Orts.Viewer3D.Common.NativeMessageBox.Kind.Information;
+            try
+            {
+                if (buttons == MessageBoxButtons.OKCancel)
+                    return Orts.Viewer3D.Common.NativeMessageBox.Show(kind, caption, text, "OK", "Cancel") == 0 ? DialogResult.OK : DialogResult.Cancel;
+                Orts.Viewer3D.Common.NativeMessageBox.Show(kind, caption, text, "OK");
+                return DialogResult.OK;
+            }
+            catch (Exception error) when (error is DllNotFoundException || error is EntryPointNotFoundException || error is InvalidOperationException)
+            {
+                // No dialog possible (for example no display): the console and log already have the message.
+                return buttons == MessageBoxButtons.OK ? DialogResult.OK : DialogResult.Cancel;
+            }
         }
     }
 

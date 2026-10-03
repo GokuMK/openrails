@@ -674,6 +674,13 @@
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <!-- spike: PostBuildActions.bat disabled -->
   </Target>
+  <!-- Copies the web server pages to Program/Content/Web on every OS (replaces that part of PostBuildActions.bat). -->
+  <Target Name="CopyWebContent" AfterTargets="Build">
+    <ItemGroup>
+      <WebContent Include="Viewer3D\WebServices\Web\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WebContent)" DestinationFiles="@(WebContent->'$(OutDir)Content\Web\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
   <!-- SPIKE(linux): WinForms map and debug windows excluded (review PR 13). -->
   <ItemGroup>
     <Compile Remove="Viewer3D\Map\**;Viewer3D\Debugging\**" />
