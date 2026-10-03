@@ -31,6 +31,7 @@ namespace Orts.Viewer3D
         protected Shader(GraphicsDevice graphicsDevice, string filename)
             : base(graphicsDevice, GetEffectCode(filename))
         {
+            SamplerStateSharing.Share(this); // SPIKE(linux): experiment, see Spike/SamplerStateSharing.cs
         }
 
         static byte[] GetEffectCode(string filename)
